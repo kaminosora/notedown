@@ -251,6 +251,7 @@ svg {
     border: 1px solid var(--line);
     border-radius: 50%;
     color: var(--text-soft);
+    background: var(--surface);
     background: color-mix(in srgb, var(--surface) 75%, transparent);
     transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
 }
@@ -346,6 +347,7 @@ svg {
 .button-quiet {
     color: var(--text-soft);
     border-color: var(--line);
+    background: var(--surface);
     background: color-mix(in srgb, var(--surface) 70%, transparent);
 }
 
@@ -596,6 +598,7 @@ svg {
     border: 1px solid var(--line);
     border-radius: 999px;
     color: var(--muted);
+    background: var(--surface);
     background: color-mix(in srgb, var(--surface) 65%, transparent);
     transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
@@ -733,6 +736,7 @@ svg {
 
 .task-pill.is-complete {
     color: var(--green);
+    background: var(--surface-soft);
     background: color-mix(in srgb, var(--green) 13%, transparent);
 }
 
@@ -799,6 +803,7 @@ svg {
     padding: 48px 24px 43px;
     border: 1px dashed var(--line-strong);
     border-radius: 20px;
+    background: var(--surface);
     background:
         radial-gradient(350px 160px at 50% 0%, rgba(var(--drag-edge-rgb), 0.07), transparent 75%),
         color-mix(in srgb, var(--surface) 48%, transparent);
@@ -1029,6 +1034,7 @@ svg {
     padding: 9px clamp(20px, 5vw, 48px);
     color: var(--text-soft);
     background: var(--accent-soft);
+    border-bottom: 1px solid var(--line);
     border-bottom: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
     font-size: 11.5px;
 }
@@ -1114,6 +1120,11 @@ svg {
     height: 3px;
     border-radius: 50%;
     background: var(--line-strong);
+}
+
+#note-content:focus,
+#note-content:focus-visible {
+    outline: none;
 }
 
 .note-content {
@@ -1252,7 +1263,7 @@ svg {
 
 .note-content li.drag-ghost {
     display: block;
-    padding: 4px 23px 4px 2px !important;
+    border: 1px solid var(--line-strong);
     border: 1px solid color-mix(in srgb, var(--accent) 27%, var(--line));
     border-radius: 9px;
     color: var(--text);
@@ -1388,6 +1399,7 @@ body.strike-mode .note-content blockquote:hover {
 .note-content code,
 .note-content kbd {
     padding: 0.15em 0.4em;
+    border: 1px solid var(--line);
     border: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
     border-radius: 5px;
     color: var(--text);
@@ -1457,6 +1469,7 @@ body.strike-mode .note-content blockquote:hover {
 }
 
 .note-content tbody tr:nth-child(even) td {
+    background: transparent;
     background: color-mix(in srgb, var(--surface-soft) 34%, transparent);
 }
 
@@ -1478,6 +1491,7 @@ body.strike-mode .note-content blockquote:hover {
     padding: 0.6em 0.9em;
     border: 1px solid var(--line);
     border-radius: 9px;
+    background: var(--surface-soft);
     background: color-mix(in srgb, var(--surface-soft) 38%, transparent);
 }
 
@@ -1688,6 +1702,7 @@ body.is-dragging * {
 
 .sheet-action.is-danger .action-icon {
     color: var(--danger);
+    background: transparent;
     background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
@@ -1955,6 +1970,7 @@ body.is-dragging * {
 
 .preview-toggle[aria-pressed="true"] {
     color: var(--accent);
+    border-color: var(--line-strong);
     border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
     background: var(--accent-soft);
 }

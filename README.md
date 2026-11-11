@@ -149,6 +149,14 @@ tests/e2e.mjs                    # 浏览器端到端测试
 
 控件由 `enhanceContent()` 在显示时重建，保存时会清理，因此存储内容不依赖某个 UI 版本。
 
+## 故障排查
+
+### 启动后立即闪退
+
+1.0.0 在 Android 15 的部分模拟器（已验证 MuMu 12）上，因系统栏初始化早于窗口 DecorView 创建而崩溃。**1.0.1 已修复**，请安装 Releases 中的最新版。
+
+如果安装最新版后仍闪退，请确认模拟器/设备安装了 **Android System WebView**。部分精简版模拟器移除了 WebView；本应用完全依赖它渲染 Markdown / HTML。可在系统设置 → 应用 → Android System WebView 中检查，或在 MuMu 设置中安装/启用 WebView。
+
 ## 已知限制
 
 - 不是所见即所得的富文本编辑器：新笔记用 Markdown 或 HTML 创作，已有笔记通过安全 HTML 源码编辑。

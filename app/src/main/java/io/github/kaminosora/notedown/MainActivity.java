@@ -84,6 +84,11 @@ public class MainActivity extends Activity {
         configureWebView();
         configureContentView();
 
+        // The decor view does not exist until setContentView has run. Applying
+        // system-bar appearance before that point crashes on some Android 15
+        // builds (including MuMu), so wait until the root view is attached.
+        rootLayout.post(() -> applyTheme(false));
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             backCallbackHolder = new OnBackInvokedCallbackHolder(this);
             backCallbackHolder.register(this::requestBack);
@@ -108,7 +113,6 @@ public class MainActivity extends Activity {
                             | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                             | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         }
-        setSystemBarAppearance(false);
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -265,7 +269,15 @@ public class MainActivity extends Activity {
     private void setSystemBarAppearance(boolean dark) {
         Window window = getWindow();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowInsetsController controller = window.getInsetsController();
+            WindowInsetsController controller = null;
+            try {
+                // getDecorView() is intentionally used instead of
+                // Window.getInsetsController(): several OEM/emulator builds
+                // throw if the decor has not been installed yet.
+                controller = window.getDecorView().getWindowInsetsController();
+            } catch (RuntimeException exception) {
+                Log.w(TAG, "System bar appearance is not available yet", exception);
+            }
             if (controller != null) {
                 int mask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
                         | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
