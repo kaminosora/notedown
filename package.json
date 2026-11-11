@@ -1,0 +1,13 @@
+{
+  "name": "notedown",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-first Markdown and HTML notes for Android",
+  "scripts": {
+    "dev": "python -m http.server 8765 --directory app/src/main/assets/www",
+    "test:e2e": "node tests/e2e.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.65.0"
+  }
+}

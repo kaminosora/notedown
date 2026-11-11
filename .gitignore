@@ -1,0 +1,22 @@
+# Android / Gradle
+.gradle/
+build/
+app/build/
+local.properties
+captures/
+*.apk
+*.aab
+*.iml
+.idea/
+
+# Local toolchain and scratch files
+.tools/
+.tmp/
+node_modules/
+dist/
+.test-artifacts/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

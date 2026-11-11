@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f4f0e7">
+    <meta name="color-scheme" content="light dark">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <title>Notedown</title>
+    <script>
+        (function () {
+            try {
+                var raw = '';
+                if (window.NotedownNative && window.NotedownNative.loadData) {
+                    raw = window.NotedownNative.loadData() || '';
+                }
+                if (!raw) {
+                    raw = window.localStorage.getItem('notedown.state.v1') || '';
+                }
+                var mode = 'auto';
+                if (raw) {
+                    var parsed = JSON.parse(raw);
+                    mode = parsed && parsed.prefs && parsed.prefs.theme ? parsed.prefs.theme : 'auto';
+                }
+                var dark = mode === 'dark' || (mode === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+                document.documentElement.style.backgroundColor = dark ? '#171613' : '#f4f0e7';
+            } catch (error) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app-shell">
+    <section id="library-screen" class="screen library-screen" aria-label="笔记书架">
+        <header class="library-header">
+            <button id="brand-home" class="brand" type="button" aria-label="返回到笔记书架">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none">
+                        <path d="M9 23.5V8.5L23 23.5V8.5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="24.8" cy="23" r="1.7" fill="currentColor"/>
+                    </svg>
+                </span>
+                <span class="brand-copy">
+                    <span class="brand-kicker">Local notebook</span>
+                    <span class="brand-name">Notedown</span>
+                </span>
+            </button>
+            <div class="header-actions">
+                <button id="theme-toggle" class="icon-button theme-button" type="button" aria-label="切换外观">
+                    <span class="theme-icon" data-theme-icon="auto" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.7"/>
+                            <path d="M12 3.75a8.25 8.25 0 0 0 0 16.5V3.75Z" fill="currentColor"/>
+                        </svg>
+                    </span>
+                    <span class="theme-icon" data-theme-icon="light" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="4.1" stroke="currentColor" stroke-width="1.7"/>
+                            <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    <span class="theme-icon" data-theme-icon="dark" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M20 14.3A8.4 8.4 0 0 1 9.7 4a8.4 8.4 0 1 0 10.3 10.3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                        </svg>
+                    </span>
+                </button>
+                <button id="import-library" class="button button-quiet header-import" type="button">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 3v11m0 0 4-4m-4 4-4-4M4 15v3.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>导入</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="library-main">
+            <section class="library-hero" aria-labelledby="hero-title">
+                <div class="hero-copy">
+                    <p class="kicker">Markdown · HTML · Local first</p>
+                    <h1 id="hero-title">把散落的文字，<br><em>收进一页纸里。</em></h1>
+                    <p class="hero-lede">导入 Markdown、HTML 与文本，合成一篇能勾选、能长按排序的笔记。没有账号，没有云端，文字只属于你的设备。</p>
+                    <div class="hero-actions">
+                        <button id="new-note" class="button button-primary" type="button">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                            </svg>
+                            新建笔记
+                        </button>
+                        <button id="import-hero" class="button button-outline" type="button">导入文件</button>
+                    </div>
+                </div>
+                <div class="hero-art-wrap" aria-hidden="true">
+                    <svg class="hero-art" viewBox="0 0 420 340" fill="none">
+                        <circle class="hero-halo" cx="228" cy="168" r="145"/>
+                        <circle class="hero-dot hero-dot-a" cx="338" cy="56" r="4"/>
+                        <circle class="hero-dot hero-dot-b" cx="80" cy="256" r="3"/>
+                        <g class="hero-paper-back" transform="rotate(-9 210 175)">
+                            <rect x="83" y="49" width="245" height="256" rx="15"/>
+                        </g>
+                        <g class="hero-paper" transform="rotate(3.5 230 170)">
+                            <rect x="105" y="34" width="252" height="268" rx="16"/>
+                            <rect class="hero-tag" x="130" y="61" width="73" height="20" rx="10"/>
+                            <path class="hero-tag-text" d="M142 71h9m4 0h17m4 0h9" stroke-linecap="round"/>
+                            <path class="hero-title-line" d="M130 105h134" stroke-linecap="round"/>
+                            <path class="hero-text-line" d="M130 120h88" stroke-linecap="round"/>
+                            <g class="hero-task">
+                                <rect x="130" y="147" width="19" height="19" rx="6"/>
+                                <path d="m135 156 3.2 3.2 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path class="hero-task-line done" d="M158 156h113" stroke-linecap="round"/>
+                            </g>
+                            <g class="hero-task">
+                                <rect x="130" y="181" width="19" height="19" rx="6"/>
+                                <path class="hero-task-line" d="M158 190h146" stroke-linecap="round"/>
+                            </g>
+                            <g class="hero-task">
+                                <rect x="130" y="215" width="19" height="19" rx="6"/>
+                                <path class="hero-task-line" d="M158 224h94" stroke-linecap="round"/>
+                            </g>
+                            <path class="hero-rule" d="M130 256h202" stroke-linecap="round"/>
+                            <path class="hero-text-line" d="M130 273h62" stroke-linecap="round"/>
+                        </g>
+                        <g class="hero-seal" transform="translate(323 254)">
+                            <circle cx="0" cy="0" r="45"/>
+                            <path d="M-16 2.5-5 13.5 17-10" stroke-linecap="round" stroke-linejoin="round"/>
+                        </g>
+                        <g class="hero-grip" transform="translate(61 129)">
+                            <circle cx="0" cy="0" r="3.5"/>
+                            <circle cx="13" cy="0" r="3.5"/>
+                            <circle cx="26" cy="0" r="3.5"/>
+                            <circle cx="0" cy="13" r="3.5"/>
+                            <circle cx="13" cy="13" r="3.5"/>
+                            <circle cx="26" cy="13" r="3.5"/>
+                        </g>
+                    </svg>
+                </div>
+            </section>
+
+            <section class="collection" aria-labelledby="collection-title">
+                <div class="collection-head">
+                    <div>
+                        <p class="kicker">Your notes</p>
+                        <h2 id="collection-title">笔记</h2>
+                    </div>
+                    <div class="collection-tools">
+                        <label class="search-box" for="search-input">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="10.8" cy="10.8" r="6.3" stroke="currentColor" stroke-width="1.7"/>
+                                <path d="m15.5 15.5 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                            </svg>
+                            <input id="search-input" type="search" placeholder="搜索笔记" autocomplete="off" spellcheck="false">
+                        </label>
+                        <span id="note-count" class="note-count">0 篇</span>
+                    </div>
+                </div>
+                <div id="notes-list" class="notes-list" aria-live="polite"></div>
+                <div id="library-empty" class="empty-state" hidden>
+                    <div class="empty-mark" aria-hidden="true">
+                        <svg viewBox="0 0 100 100" fill="none">
+                            <rect x="22" y="14" width="56" height="72" rx="8"/>
+                            <path d="M34 36h32M34 48h24M34 60h17" stroke-linecap="round"/>
+                            <circle cx="70" cy="74" r="16"/>
+                            <path d="M62.5 74.2 68 80l10-11" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <p class="kicker" id="empty-kicker">A clean page</p>
+                    <h2 id="empty-title">还没有笔记</h2>
+                    <p id="empty-copy">新建一篇，或把已经写好的 Markdown / HTML 文件带进来。</p>
+                    <div class="empty-actions">
+                        <button id="empty-create" class="button button-primary" type="button">新建笔记</button>
+                        <button id="empty-import" class="button button-outline" type="button">导入文件</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="library-footer">
+            <span>所有笔记保存在设备本地</span>
+            <span class="footer-sep" aria-hidden="true"></span>
+            <span>长按列表项可拖动排序</span>
+        </footer>
+
+        <button id="new-note-fab" class="fab" type="button" aria-label="新建笔记">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span>新建</span>
+        </button>
+    </section>
+
+    <section id="note-screen" class="screen note-screen" aria-label="阅读笔记" hidden>
+        <header id="note-topbar" class="note-topbar">
+            <button id="back-button" class="icon-button back-button" type="button" aria-label="返回笔记书架">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M19 12H5m0 0 6-6m-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <div class="topbar-context">
+                <span class="kicker">Reading</span>
+                <span id="note-topbar-title" class="topbar-title">笔记</span>
+            </div>
+            <div class="topbar-actions">
+                <button id="strike-button" class="icon-button strike-button" type="button" aria-label="划线模式" aria-pressed="false">
+                    <span class="strike-glyph" aria-hidden="true">S</span>
+                </button>
+                <button id="note-menu-button" class="icon-button" type="button" aria-label="打开笔记菜单" aria-haspopup="dialog">
+                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <circle cx="5" cy="12" r="1.7"/>
+                        <circle cx="12" cy="12" r="1.7"/>
+                        <circle cx="19" cy="12" r="1.7"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+        <div id="strike-banner" class="strike-banner" role="status" hidden>
+            <span><strong>划线模式</strong> · 点按段落或列表项切换划去</span>
+            <button id="strike-done" class="text-button" type="button">完成</button>
+        </div>
+        <main class="note-main">
+            <article class="note-sheet">
+                <header class="note-head">
+                    <div class="note-head-row">
+                        <p class="kicker">Notedown / Note</p>
+                        <span id="note-index" class="note-index">01</span>
+                    </div>
+                    <h1 id="note-title">笔记</h1>
+                    <div class="note-meta">
+                        <span id="note-updated">刚刚</span>
+                        <span class="meta-dot" aria-hidden="true"></span>
+                        <span id="note-stats">0 字</span>
+                    </div>
+                </header>
+                <div id="note-content" class="note-content" tabindex="-1"></div>
+                <footer class="note-tip">
+                    <span class="tip-grip" aria-hidden="true">⠿</span>
+                    <span>点按方框勾选 · 长按列表项拖动排序 · 拖到屏幕边缘自动滚动</span>
+                </footer>
+            </article>
+        </main>
+    </section>
+</div>
+
+<div id="action-sheet-backdrop" class="modal-backdrop" hidden></div>
+<section id="action-sheet" class="action-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
+    <div class="sheet-grabber" aria-hidden="true"></div>
+    <div class="sheet-heading">
+        <p class="kicker">Note actions</p>
+        <h2 id="sheet-title">笔记操作</h2>
+    </div>
+    <div id="sheet-actions" class="sheet-actions"></div>
+    <button id="sheet-cancel" class="sheet-cancel" type="button">取消</button>
+</section>
+
+<div id="confirm-backdrop" class="modal-backdrop" hidden></div>
+<section id="confirm-dialog" class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message" hidden>
+    <p class="kicker">Please confirm</p>
+    <h2 id="confirm-title">删除这篇笔记？</h2>
+    <p id="confirm-message" class="dialog-copy">删除后无法恢复。</p>
+    <div class="dialog-actions">
+        <button id="confirm-cancel" class="button button-outline" type="button">取消</button>
+        <button id="confirm-ok" class="button button-danger" type="button">删除</button>
+    </div>
+</section>
+
+<div id="rename-backdrop" class="modal-backdrop" hidden></div>
+<section id="rename-dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="rename-heading" hidden>
+    <form id="rename-form">
+        <p class="kicker">Rename</p>
+        <h2 id="rename-heading">给笔记一个名字</h2>
+        <label class="field-label" for="rename-input">标题</label>
+        <input id="rename-input" class="text-input" type="text" maxlength="80" autocomplete="off" placeholder="笔记标题">
+        <div class="dialog-actions">
+            <button id="rename-cancel" class="button button-outline" type="button">取消</button>
+            <button class="button button-primary" type="submit">保存</button>
+        </div>
+    </form>
+</section>
+
+<section id="editor-overlay" class="editor-overlay" role="dialog" aria-modal="true" aria-labelledby="editor-title-label" hidden>
+    <form id="editor-form" class="editor-shell" novalidate>
+        <header class="editor-topbar">
+            <button id="editor-cancel" class="text-button editor-cancel" type="button">取消</button>
+            <div class="editor-heading">
+                <p class="kicker" id="editor-mode-label">Compose</p>
+                <h2 id="editor-title-label">新建笔记</h2>
+            </div>
+            <button id="editor-save" class="button button-primary editor-save" type="submit">保存</button>
+        </header>
+        <div class="editor-scroll">
+            <label class="editor-title-field" for="editor-title">
+                <span class="field-label">标题 <small>可留空，自动从内容提取</small></span>
+                <input id="editor-title" type="text" maxlength="80" autocomplete="off" placeholder="未命名笔记">
+            </label>
+            <div class="editor-toolbar">
+                <div id="editor-format-switch" class="segmented" role="group" aria-label="输入格式">
+                    <button class="is-active" type="button" data-format="markdown">Markdown</button>
+                    <button type="button" data-format="html">HTML</button>
+                </div>
+                <span id="editor-format-label" class="format-label" hidden>HTML 源码</span>
+                <button id="editor-preview-toggle" class="text-button preview-toggle" type="button" aria-pressed="false">预览</button>
+            </div>
+            <textarea id="editor-textarea" class="editor-textarea" spellcheck="false" placeholder="从这里开始写……"></textarea>
+            <div id="editor-preview" class="note-content editor-preview" hidden></div>
+            <p id="editor-hint" class="editor-hint">支持 GFM 任务列表、表格、代码块与原生 HTML。保存后会进行安全净化。</p>
+        </div>
+    </form>
+</section>
+
+<input id="file-input" type="file" multiple accept=".md,.markdown,.mdown,.mkd,.html,.htm,.xhtml,.txt,.text,text/markdown,text/html,text/plain" hidden>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="js/vendor/marked.umd.js"></script>
+<script src="js/vendor/purify.min.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/store.js"></script>
+<script src="js/drag.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
