@@ -47,6 +47,42 @@
         trash: '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4.5h6V7m-8 0 1 13h8l1-13M10 11v5m4-5v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     };
 
+    const RICH_ICONS = {
+        undo: '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h9a6 6 0 0 1 0 12h-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        redo: '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 14 5-5-5-5m5 5h-9a6 6 0 0 0 0 12h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        bulletList: '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="5" cy="7" r="1.4" fill="currentColor"/><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="5" cy="17" r="1.4" fill="currentColor"/><path d="M9 7h10M9 12h10M9 17h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+        task: '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="4" width="16" height="16" rx="4" stroke="currentColor" stroke-width="1.6"/><path d="m7.5 12 3 3 6-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        quote: '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 17V11h5v4.3c0 2.2-1.1 3.6-3.3 4.2M13 17V11h5v4.3c0 2.2-1.1 3.6-3.3 4.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        codeBlock: '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="m8.5 9.5-2.2 2.5 2.2 2.5M15.5 9.5l2.2 2.5-2.2 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        link: '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        eraser: '<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m4 14 7.5-7.5a2.1 2.1 0 0 1 3 0l4 4a2.1 2.1 0 0 1 0 3L14 18H8l-4-4Zm5 4h11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    };
+
+    const RICH_TOOLS = [
+        {action: 'undo', label: '撤销', html: RICH_ICONS.undo},
+        {action: 'redo', label: '重做', html: RICH_ICONS.redo},
+        {separator: true},
+        {action: 'format', value: '<h1>', label: '一级标题', text: 'H1', glyphClass: 'is-upright'},
+        {action: 'format', value: '<h2>', label: '二级标题', text: 'H2', glyphClass: 'is-upright'},
+        {action: 'format', value: '<h3>', label: '三级标题', text: 'H3', glyphClass: 'is-upright'},
+        {action: 'format', value: '<p>', label: '正文', text: '¶', glyphClass: 'is-upright'},
+        {separator: true},
+        {action: 'bold', label: '加粗', text: 'B', glyphClass: 'is-bold', toggle: 'bold'},
+        {action: 'italic', label: '斜体', text: 'I', glyphClass: 'is-italic', toggle: 'italic'},
+        {action: 'strike', label: '删除线', text: 'S', glyphClass: 'is-strike', toggle: 'strikeThrough'},
+        {action: 'inline-code', label: '行内代码', text: '</>', glyphClass: 'is-code'},
+        {action: 'link', label: '插入链接', html: RICH_ICONS.link},
+        {separator: true},
+        {action: 'bullet-list', label: '无序列表', html: RICH_ICONS.bulletList},
+        {action: 'number-list', label: '有序列表', text: '1.', glyphClass: 'is-upright'},
+        {action: 'task-list', label: '任务清单', html: RICH_ICONS.task},
+        {action: 'quote', label: '引用', html: RICH_ICONS.quote},
+        {action: 'code-block', label: '代码块', html: RICH_ICONS.codeBlock},
+        {action: 'divider', label: '分割线', text: '—', glyphClass: 'is-upright'},
+        {separator: true},
+        {action: 'clear', label: '清除格式', html: RICH_ICONS.eraser}
+    ];
+
     const app = {
         currentView: 'library',
         currentNoteId: null,
@@ -55,8 +91,10 @@
         strikeMode: false,
         editorMode: null,
         editorNoteId: null,
-        editorFormat: 'markdown',
+        editorFormat: 'rich',
         editorPreviewing: false,
+        richRange: null,
+        linkRange: null,
         importTarget: 'library',
         pendingConfirm: null,
         toastTimer: 0,
@@ -75,7 +113,8 @@
             'note-count', 'notes-list', 'library-empty', 'empty-kicker',
             'empty-title', 'empty-copy', 'empty-create', 'empty-import',
             'new-note-fab', 'back-button', 'note-topbar', 'note-topbar-title',
-            'strike-button', 'note-menu-button', 'strike-banner', 'strike-done',
+            'edit-note-button', 'strike-button', 'note-menu-button',
+            'strike-banner', 'strike-done',
             'note-title', 'note-index', 'note-updated', 'note-stats',
             'note-content', 'action-sheet-backdrop', 'action-sheet', 'sheet-title',
             'sheet-actions', 'sheet-cancel', 'confirm-backdrop', 'confirm-dialog',
@@ -83,9 +122,11 @@
             'rename-backdrop', 'rename-dialog', 'rename-form', 'rename-input',
             'rename-cancel', 'editor-overlay', 'editor-form', 'editor-cancel',
             'editor-save', 'editor-mode-label', 'editor-title-label',
-            'editor-title', 'editor-format-switch', 'editor-format-label',
+            'editor-title', 'editor-mode-tabs', 'editor-rich', 'rich-toolbar',
             'editor-preview-toggle', 'editor-textarea', 'editor-preview',
-            'editor-hint', 'file-input', 'toast'
+            'editor-hint', 'editor-link-layer', 'editor-link-form',
+            'editor-link-input', 'editor-link-cancel', 'editor-link-backdrop',
+            'file-input', 'toast'
         ];
         for (const id of ids) {
             const key = id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
@@ -119,6 +160,7 @@
             seedWelcomeNote();
         }
 
+        buildRichToolbar();
         bindEvents();
         initDrag();
         renderLibrary();
@@ -195,6 +237,11 @@
         });
 
         dom.backButton.addEventListener('click', handleBack);
+        dom.editNoteButton.addEventListener('click', () => {
+            if (app.currentNoteId) {
+                openEditor('edit', app.currentNoteId);
+            }
+        });
         dom.noteMenuButton.addEventListener('click', openActionSheet);
         dom.strikeButton.addEventListener('click', () => setStrikeMode(!app.strikeMode));
         dom.strikeDone.addEventListener('click', () => setStrikeMode(false));
@@ -216,15 +263,15 @@
 
         dom.editorForm.addEventListener('submit', submitEditor);
         dom.editorCancel.addEventListener('click', () => closeEditor());
-        for (const button of dom.editorFormatSwitch.querySelectorAll('[data-format]')) {
-            button.addEventListener('click', () => chooseEditorFormat(button.getAttribute('data-format')));
+        for (const button of dom.editorModeTabs.querySelectorAll('[data-editor-mode]')) {
+            button.addEventListener('click', () => switchEditorMode(button.getAttribute('data-editor-mode')));
         }
         dom.editorPreviewToggle.addEventListener('click', toggleEditorPreview);
         dom.fileInput.addEventListener('change', onBrowserFilesChosen);
         dom.editorTitle.addEventListener('keydown', (event) => {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                dom.editorTextarea.focus();
+                focusEditorText();
             }
         });
         dom.editorTextarea.addEventListener('keydown', onEditorTextareaKeydown);
@@ -233,7 +280,21 @@
                 event.preventDefault();
             }
         });
+        dom.editorRich.addEventListener('input', () => {
+            updateRichEmptyState();
+            updateRichToolbarState();
+        });
+        dom.editorRich.addEventListener('change', onRichCheckboxChange);
+        dom.editorRich.addEventListener('click', onRichEditorClick);
+        dom.editorRich.addEventListener('paste', onRichPaste);
+        dom.editorRich.addEventListener('drop', onRichDrop);
+        dom.editorRich.addEventListener('dragover', (event) => event.preventDefault());
+        dom.editorRich.addEventListener('keydown', onRichEditorKeydown);
+        dom.editorLinkForm.addEventListener('submit', submitLinkDialog);
+        dom.editorLinkCancel.addEventListener('click', () => closeLinkDialog(true));
+        dom.editorLinkBackdrop.addEventListener('click', () => closeLinkDialog(true));
 
+        document.addEventListener('selectionchange', onSelectionChange);
         document.addEventListener('keydown', onDocumentKeydown);
     }
 
@@ -434,7 +495,7 @@
         }
         const empty = document.createElement('p');
         empty.className = 'note-empty';
-        empty.textContent = '这篇笔记还没有内容。打开右上角菜单，可以编辑 HTML 源码。';
+        empty.textContent = '这篇笔记还没有内容。点右上角的铅笔按钮开始编辑。';
         dom.noteContent.replaceChildren(empty);
     }
 
@@ -594,7 +655,7 @@
         const actions = [
             {id: 'import', label: '导入文件到这篇笔记', icon: ICONS.import},
             {id: 'rename', label: '重命名笔记', icon: ICONS.rename},
-            {id: 'edit', label: '编辑 HTML 源码', icon: ICONS.edit},
+            {id: 'edit', label: '编辑笔记', icon: ICONS.edit},
             {id: 'theme', label: `切换外观 · ${themeLabel(app.themeMode).replace('外观：', '')}`, icon: ICONS.theme},
             {id: 'delete', label: '删除笔记', icon: ICONS.trash, danger: true}
         ];
@@ -786,80 +847,702 @@
 
         app.editorMode = mode;
         app.editorNoteId = note ? note.id : null;
-        app.editorFormat = mode === 'edit' ? 'html' : 'markdown';
+        app.editorFormat = 'rich';
         app.editorPreviewing = false;
+        app.richRange = null;
+        app.linkRange = null;
 
+        dom.editorLinkLayer.hidden = true;
+        dom.editorForm.inert = false;
         dom.editorModeLabel.textContent = mode === 'edit' ? 'Edit' : 'Compose';
         dom.editorTitleLabel.textContent = mode === 'edit' ? '编辑笔记' : '新建笔记';
         dom.editorTitle.value = note ? note.title : '';
-        dom.editorTextarea.value = note ? note.html : '';
-        dom.editorTextarea.hidden = false;
-        dom.editorPreview.hidden = true;
         dom.editorPreview.innerHTML = '';
+        dom.editorPreview.hidden = true;
+        dom.editorTextarea.value = '';
         dom.editorPreviewToggle.setAttribute('aria-pressed', 'false');
         dom.editorPreviewToggle.textContent = '预览';
-        dom.editorFormatSwitch.hidden = mode === 'edit';
-        dom.editorFormatLabel.hidden = mode !== 'edit';
-        dom.editorFormatLabel.textContent = 'HTML 源码';
 
-        for (const button of dom.editorFormatSwitch.querySelectorAll('[data-format]')) {
-            button.classList.toggle('is-active', button.getAttribute('data-format') === app.editorFormat);
-        }
-        updateEditorPlaceholder();
-
+        setRichContent(note ? Parser.sanitizeHtml(note.html) : '');
+        applyEditorModeUi();
         dom.editorOverlay.hidden = false;
         syncOverlayState();
+
         requestAnimationFrame(() => {
             if (mode === 'create') {
                 dom.editorTitle.focus();
             } else {
-                dom.editorTextarea.focus();
+                focusRichAtStart();
             }
         });
     }
 
     function closeEditor(restoreFocus) {
+        closeLinkDialog(false);
         blurInside(dom.editorOverlay);
         dom.editorOverlay.hidden = true;
         dom.editorPreview.hidden = true;
         dom.editorPreview.innerHTML = '';
-        dom.editorTextarea.hidden = false;
+        dom.editorTextarea.hidden = true;
+        dom.editorTextarea.value = '';
+        dom.editorRich.hidden = false;
+        dom.editorRich.innerHTML = '';
         app.editorMode = null;
         app.editorNoteId = null;
+        app.editorFormat = 'rich';
         app.editorPreviewing = false;
+        app.richRange = null;
+        app.linkRange = null;
         syncOverlayState();
     }
 
-    function chooseEditorFormat(format) {
-        if (app.editorMode === 'edit' || (format !== 'markdown' && format !== 'html')) {
+    function captureEditorHtml() {
+        if (app.editorFormat === 'rich') {
+            return Parser.sanitizeHtml(Parser.serializeContent(dom.editorRich));
+        }
+        const source = dom.editorTextarea.value;
+        if (app.editorFormat === 'markdown') {
+            return Parser.markdownToHtml(source);
+        }
+        return Parser.htmlToHtml(source);
+    }
+
+    function switchEditorMode(target) {
+        if (!app.editorMode || target === app.editorFormat) {
             return;
         }
-        app.editorFormat = format;
-        for (const button of dom.editorFormatSwitch.querySelectorAll('[data-format]')) {
-            button.classList.toggle('is-active', button.getAttribute('data-format') === format);
+        if (!['rich', 'markdown', 'html'].includes(target)) {
+            return;
         }
-        updateEditorPlaceholder();
-        if (app.editorPreviewing) {
-            renderEditorPreview();
+
+        let html;
+        try {
+            html = captureEditorHtml();
+        } catch (error) {
+            showToast('当前内容无法转换，请检查格式');
+            return;
+        }
+
+        if (target === 'markdown') {
+            try {
+                dom.editorTextarea.value = NoteMarkdown.htmlToMarkdown(html);
+            } catch (error) {
+                showToast('无法转换为 Markdown');
+                return;
+            }
+        } else if (target === 'html') {
+            dom.editorTextarea.value = html;
+        }
+
+        app.editorFormat = target;
+        app.editorPreviewing = false;
+        dom.editorPreview.hidden = true;
+        dom.editorPreview.innerHTML = '';
+        dom.editorPreviewToggle.setAttribute('aria-pressed', 'false');
+        dom.editorPreviewToggle.textContent = '预览';
+
+        if (target === 'rich') {
+            setRichContent(html);
+            applyEditorModeUi();
+            requestAnimationFrame(() => focusRichAtStart());
+        } else {
+            applyEditorModeUi();
+            requestAnimationFrame(() => {
+                dom.editorTextarea.focus();
+                dom.editorTextarea.setSelectionRange(0, 0);
+                dom.editorTextarea.scrollTop = 0;
+            });
         }
     }
 
-    function updateEditorPlaceholder() {
-        if (app.editorMode === 'edit') {
-            dom.editorTextarea.placeholder = '直接编辑安全 HTML……';
-            dom.editorHint.textContent = '任务状态保存在 data-* 属性中。为保证安全，脚本、内联样式和事件属性会被移除。';
-            return;
+    function applyEditorModeUi() {
+        const mode = app.editorFormat;
+        for (const button of dom.editorModeTabs.querySelectorAll('[data-editor-mode]')) {
+            const active = button.getAttribute('data-editor-mode') === mode;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
         }
-        if (app.editorFormat === 'markdown') {
+
+        const rich = mode === 'rich';
+        dom.editorRich.hidden = !rich;
+        dom.richToolbar.hidden = !rich;
+        dom.editorPreviewToggle.hidden = rich;
+        if (rich) {
+            dom.editorTextarea.hidden = true;
+            dom.editorPreview.hidden = true;
+        } else {
+            dom.editorTextarea.hidden = app.editorPreviewing;
+            dom.editorPreview.hidden = !app.editorPreviewing;
+        }
+        updateEditorHint();
+        updateRichEmptyState();
+    }
+
+    function updateEditorHint() {
+        if (app.editorFormat === 'rich') {
+            dom.editorTextarea.placeholder = '从这里开始写……';
+            dom.editorHint.textContent = '直接点选文字即可编辑；工具栏支持标题、加粗、列表、任务与链接。保存后会进行安全净化。';
+        } else if (app.editorFormat === 'markdown') {
             dom.editorTextarea.placeholder = '# 标题\n\n- [ ] 第一件事\n- [ ] 第二件事\n\n用 Markdown 写点什么……';
-            dom.editorHint.textContent = '支持 GFM 任务列表、表格、代码块、链接与原生 HTML。保存后会进行安全净化。';
+            dom.editorHint.textContent = '编辑 Markdown 源码，勾选列表会自动往返。可切换预览检查结果。';
         } else {
             dom.editorTextarea.placeholder = '<h1>标题</h1>\n<p>用 HTML 写点什么……</p>\n<ul>\n  <li>一个条目</li>\n</ul>';
-            dom.editorHint.textContent = '只保留安全的语义标签；脚本、内联样式和事件属性会被移除。';
+            dom.editorHint.textContent = '直接编辑安全 HTML；脚本、内联样式和事件属性会在保存时被移除。';
+        }
+    }
+
+    function focusEditorText() {
+        if (app.editorFormat === 'rich') {
+            focusRichForCommand();
+        } else {
+            dom.editorTextarea.focus();
+        }
+    }
+
+    function setRichContent(html) {
+        dom.editorRich.innerHTML = html && html.trim() ? html : '<p><br></p>';
+        Parser.enhanceContent(dom.editorRich);
+        prepareRichCheckboxes();
+        updateRichEmptyState();
+    }
+
+    function prepareRichCheckboxes() {
+        for (const checkbox of dom.editorRich.querySelectorAll('.nt-checkbox')) {
+            checkbox.setAttribute('contenteditable', 'false');
+            checkbox.setAttribute('tabindex', '-1');
+        }
+    }
+
+    function updateRichEmptyState() {
+        if (!dom.editorRich) {
+            return;
+        }
+        const text = dom.editorRich.textContent.replace(/\s+/g, '');
+        const media = dom.editorRich.querySelector('img, hr, table, pre');
+        dom.editorRich.setAttribute('data-empty', !text && !media ? 'true' : 'false');
+    }
+
+    function focusRichAtStart() {
+        dom.editorRich.focus({preventScroll: true});
+        const range = document.createRange();
+        range.selectNodeContents(dom.editorRich);
+        range.collapse(true);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        app.richRange = range.cloneRange();
+    }
+
+    function focusRichForCommand() {
+        dom.editorRich.focus({preventScroll: true});
+        const selection = window.getSelection();
+        const current = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+        let range = null;
+        if (current && editorRangeIsInsideRich(current)) {
+            range = current.cloneRange();
+        } else if (app.richRange && editorRangeIsInsideRich(app.richRange)) {
+            range = app.richRange.cloneRange();
+        } else {
+            range = document.createRange();
+            range.selectNodeContents(dom.editorRich);
+            range.collapse(false);
+        }
+        selection.removeAllRanges();
+        selection.addRange(range);
+        app.richRange = range.cloneRange();
+        return range;
+    }
+
+    function editorRangeIsInsideRich(range) {
+        return Boolean(
+            range
+            && dom.editorRich.contains(range.startContainer)
+            && dom.editorRich.contains(range.endContainer)
+        );
+    }
+
+    function rememberRichSelection() {
+        if (!app.editorMode || app.editorFormat !== 'rich' || dom.editorOverlay.hidden) {
+            return;
+        }
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount) {
+            const range = selection.getRangeAt(0);
+            if (editorRangeIsInsideRich(range)) {
+                app.richRange = range.cloneRange();
+            }
+        }
+    }
+
+    function onSelectionChange() {
+        if (!app.editorMode || app.editorFormat !== 'rich' || dom.editorOverlay.hidden) {
+            return;
+        }
+        rememberRichSelection();
+        updateRichToolbarState();
+    }
+
+    function buildRichToolbar() {
+        if (!dom.richToolbar) {
+            return;
+        }
+        dom.richToolbar.replaceChildren();
+        for (const tool of RICH_TOOLS) {
+            if (tool.separator) {
+                const separator = document.createElement('span');
+                separator.className = 'rich-tool-sep';
+                separator.setAttribute('aria-hidden', 'true');
+                dom.richToolbar.appendChild(separator);
+                continue;
+            }
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'rich-tool';
+            button.title = tool.label;
+            button.setAttribute('aria-label', tool.label);
+            button.setAttribute('data-rich-action', tool.action);
+            if (tool.value) {
+                button.setAttribute('data-rich-value', tool.value);
+            }
+            if (tool.toggle) {
+                button.setAttribute('data-toggle-command', tool.toggle);
+                button.setAttribute('aria-pressed', 'false');
+            }
+            if (tool.html) {
+                button.innerHTML = tool.html;
+            } else {
+                const glyph = document.createElement('span');
+                glyph.className = `rich-tool-glyph${tool.glyphClass ? ` ${tool.glyphClass}` : ''}`;
+                glyph.textContent = tool.text;
+                button.appendChild(glyph);
+            }
+
+            let pressStart = null;
+            button.addEventListener('pointerdown', (event) => {
+                if (event.pointerType === 'mouse' && event.button !== 0) {
+                    return;
+                }
+                event.preventDefault();
+                pressStart = {x: event.clientX, y: event.clientY, id: event.pointerId};
+                try {
+                    button.setPointerCapture(event.pointerId);
+                } catch (error) {
+                    // Pointer capture is optional.
+                }
+            });
+            button.addEventListener('pointerup', (event) => {
+                if (!pressStart || event.pointerId !== pressStart.id) {
+                    return;
+                }
+                const moved = Math.hypot(event.clientX - pressStart.x, event.clientY - pressStart.y);
+                pressStart = null;
+                if (moved > 10) {
+                    return;
+                }
+                event.preventDefault();
+                runRichToolAction(tool);
+            });
+            button.addEventListener('pointercancel', () => {
+                pressStart = null;
+            });
+            button.addEventListener('click', (event) => {
+                if (event.detail === 0) {
+                    event.preventDefault();
+                    runRichToolAction(tool);
+                }
+            });
+            dom.richToolbar.appendChild(button);
+        }
+    }
+
+    function updateRichToolbarState() {
+        if (!dom.richToolbar || app.editorFormat !== 'rich') {
+            return;
+        }
+        const selection = window.getSelection();
+        if (!selection || !selection.rangeCount || !editorRangeIsInsideRich(selection.getRangeAt(0))) {
+            return;
+        }
+        const collapsed = selection.isCollapsed;
+        for (const button of dom.richToolbar.querySelectorAll('[data-toggle-command]')) {
+            let active = false;
+            if (!collapsed) {
+                try {
+                    active = document.queryCommandState(button.getAttribute('data-toggle-command'));
+                } catch (error) {
+                    active = false;
+                }
+            }
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        }
+    }
+
+    function runRichToolAction(tool) {
+        if (!app.editorMode || app.editorFormat !== 'rich') {
+            return;
+        }
+        focusRichForCommand();
+        switch (tool.action) {
+            case 'undo':
+            case 'redo':
+                document.execCommand(tool.action, false, null);
+                break;
+            case 'format':
+                document.execCommand('formatBlock', false, tool.value);
+                break;
+            case 'bold':
+            case 'italic':
+                document.execCommand(tool.action, false, null);
+                break;
+            case 'strike':
+                document.execCommand('strikeThrough', false, null);
+                break;
+            case 'bullet-list':
+                document.execCommand('insertUnorderedList', false, null);
+                break;
+            case 'number-list':
+                document.execCommand('insertOrderedList', false, null);
+                break;
+            case 'quote':
+                document.execCommand('formatBlock', false, '<blockquote>');
+                break;
+            case 'code-block':
+                document.execCommand('formatBlock', false, '<pre>');
+                break;
+            case 'divider':
+                document.execCommand('insertHorizontalRule', false, null);
+                break;
+            case 'clear':
+                document.execCommand('removeFormat', false, null);
+                break;
+            case 'inline-code':
+                applyInlineCode();
+                break;
+            case 'link':
+                openLinkDialog();
+                return;
+            case 'task-list':
+                applyTaskList();
+                break;
+            default:
+                return;
+        }
+        rememberRichSelection();
+        updateRichEmptyState();
+        updateRichToolbarState();
+    }
+
+    function applyInlineCode() {
+        const range = focusRichForCommand();
+        if (!range) {
+            return;
+        }
+        const selection = window.getSelection();
+        const code = document.createElement('code');
+        if (range.collapsed) {
+            code.textContent = '代码';
+            range.insertNode(code);
+        } else {
+            code.appendChild(range.extractContents());
+            range.insertNode(code);
+        }
+        const nextRange = document.createRange();
+        nextRange.selectNodeContents(code);
+        selection.removeAllRanges();
+        selection.addRange(nextRange);
+        app.richRange = nextRange.cloneRange();
+    }
+
+    function applyTaskList() {
+        const range = focusRichForCommand();
+        if (!range) {
+            return;
+        }
+        let node = range.startContainer;
+        if (node.nodeType === Node.TEXT_NODE) {
+            node = node.parentElement;
+        } else if (node.nodeType !== Node.ELEMENT_NODE) {
+            node = dom.editorRich;
+        }
+        const existingItem = node.closest ? node.closest('li') : null;
+        if (existingItem && dom.editorRich.contains(existingItem)) {
+            toggleTaskListItem(existingItem);
+            return;
+        }
+
+        const block = node.closest ? node.closest('p, div, h1, h2, h3, h4, h5, h6, blockquote, pre') : null;
+        if (block && dom.editorRich.contains(block) && block !== dom.editorRich) {
+            const list = document.createElement('ul');
+            const item = document.createElement('li');
+            item.setAttribute('data-task', 'true');
+            item.setAttribute('data-checked', 'false');
+            while (block.firstChild) {
+                item.appendChild(block.firstChild);
+            }
+            list.appendChild(item);
+            block.replaceWith(list);
+            Parser.enhanceContent(dom.editorRich);
+            prepareRichCheckboxes();
+            placeCaretAtEnd(item);
+            return;
+        }
+
+        const list = document.createElement('ul');
+        const item = document.createElement('li');
+        item.setAttribute('data-task', 'true');
+        item.setAttribute('data-checked', 'false');
+        item.textContent = '新任务';
+        list.appendChild(item);
+        dom.editorRich.appendChild(list);
+        Parser.enhanceContent(dom.editorRich);
+        prepareRichCheckboxes();
+        placeCaretAtEnd(item);
+    }
+
+    function toggleTaskListItem(item) {
+        const wasTask = item.getAttribute('data-task') === 'true';
+        if (wasTask) {
+            item.removeAttribute('data-task');
+            item.removeAttribute('data-checked');
+            item.classList.remove('nt-task', 'is-done');
+            const checkbox = item.querySelector(':scope > .nt-checkbox');
+            if (checkbox) {
+                checkbox.remove();
+            }
+            const list = item.parentElement;
+            if (list && !list.querySelector(':scope > li[data-task="true"]')) {
+                list.classList.remove('nt-task-list');
+            }
+            placeCaretAtEnd(item);
+        } else {
+            item.setAttribute('data-task', 'true');
+            item.setAttribute('data-checked', 'false');
+            Parser.enhanceContent(dom.editorRich);
+            prepareRichCheckboxes();
+            const checkbox = item.querySelector(':scope > .nt-checkbox');
+            if (checkbox) {
+                checkbox.checked = false;
+            }
+            item.classList.remove('is-done');
+            placeCaretAtEnd(item);
+        }
+        updateRichEmptyState();
+    }
+
+    function placeCaretAtEnd(element) {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        range.collapse(false);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        dom.editorRich.focus({preventScroll: true});
+        app.richRange = range.cloneRange();
+    }
+
+    function openLinkDialog() {
+        const range = focusRichForCommand();
+        if (!range || range.collapsed) {
+            showToast('先选中要添加链接的文字');
+            return;
+        }
+        app.linkRange = range.cloneRange();
+        dom.editorLinkInput.value = '';
+        dom.editorForm.inert = true;
+        dom.editorLinkLayer.hidden = false;
+        requestAnimationFrame(() => dom.editorLinkInput.focus());
+    }
+
+    function closeLinkDialog(refocus) {
+        if (dom.editorLinkLayer.hidden) {
+            return;
+        }
+        dom.editorLinkLayer.hidden = true;
+        dom.editorForm.inert = false;
+        dom.editorLinkInput.value = '';
+        if (refocus && app.editorMode) {
+            requestAnimationFrame(() => {
+                focusRichForCommand();
+            });
+        }
+        app.linkRange = null;
+    }
+
+    function normalizeLinkUrl(value) {
+        let url = String(value || '').trim();
+        if (!url) {
+            return '';
+        }
+        if (/^www\./i.test(url)) {
+            url = `https://${url}`;
+        } else if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) {
+            url = `https://${url}`;
+        }
+        try {
+            const parsed = new URL(url);
+            if (!['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)) {
+                return '';
+            }
+            return url;
+        } catch (error) {
+            return '';
+        }
+    }
+
+    function submitLinkDialog(event) {
+        event.preventDefault();
+        if (!app.linkRange) {
+            closeLinkDialog(true);
+            return;
+        }
+        const url = normalizeLinkUrl(dom.editorLinkInput.value);
+        if (!url) {
+            dom.editorLinkInput.focus();
+            showToast('请输入有效的链接地址');
+            return;
+        }
+        const range = app.linkRange.cloneRange();
+        dom.editorLinkLayer.hidden = true;
+        dom.editorForm.inert = false;
+        app.linkRange = null;
+        dom.editorRich.focus({preventScroll: true});
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        let inserted = false;
+        try {
+            inserted = document.execCommand('createLink', false, url);
+        } catch (error) {
+            inserted = false;
+        }
+        if (!inserted) {
+            const anchor = document.createElement('a');
+            anchor.setAttribute('href', url);
+            anchor.appendChild(range.extractContents());
+            range.insertNode(anchor);
+            const next = document.createRange();
+            next.setStartAfter(anchor);
+            next.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(next);
+        }
+        app.richRange = window.getSelection().rangeCount
+            ? window.getSelection().getRangeAt(0).cloneRange()
+            : null;
+        updateRichToolbarState();
+        updateRichEmptyState();
+        dom.editorLinkInput.value = '';
+    }
+
+    function onRichCheckboxChange(event) {
+        const input = event.target;
+        if (!(input instanceof HTMLInputElement) || !input.classList.contains('nt-checkbox')) {
+            return;
+        }
+        const item = input.closest('li[data-task="true"]');
+        if (!item) {
+            return;
+        }
+        item.setAttribute('data-checked', input.checked ? 'true' : 'false');
+        item.classList.toggle('is-done', input.checked);
+    }
+
+    function onRichEditorClick(event) {
+        if (event.target.closest('a[href]')) {
+            event.preventDefault();
+        }
+    }
+
+    function onRichPaste(event) {
+        const clipboard = event.clipboardData;
+        if (!clipboard) {
+            return;
+        }
+        const html = clipboard.getData('text/html');
+        if (!html) {
+            return;
+        }
+        event.preventDefault();
+        let safe = '';
+        try {
+            safe = Parser.htmlToHtml(html);
+        } catch (error) {
+            safe = '';
+        }
+        if (safe.trim()) {
+            insertRichHtml(safe);
+        } else {
+            const plain = clipboard.getData('text/plain');
+            if (plain) {
+                document.execCommand('insertText', false, plain);
+            }
+        }
+    }
+
+    function onRichDrop(event) {
+        event.preventDefault();
+        const transfer = event.dataTransfer;
+        if (!transfer) {
+            return;
+        }
+        const html = transfer.getData('text/html');
+        if (html) {
+            try {
+                const safe = Parser.htmlToHtml(html);
+                if (safe.trim()) {
+                    insertRichHtml(safe);
+                    return;
+                }
+            } catch (error) {
+                // Fall through to plain text.
+            }
+        }
+        const text = transfer.getData('text/plain');
+        if (text) {
+            focusRichForCommand();
+            document.execCommand('insertText', false, text);
+            updateRichEmptyState();
+        }
+    }
+
+    function insertRichHtml(html) {
+        const range = focusRichForCommand();
+        if (!range) {
+            return;
+        }
+        range.deleteContents();
+        const fragment = range.createContextualFragment(html);
+        const last = fragment.lastChild;
+        range.insertNode(fragment);
+        if (last) {
+            const next = document.createRange();
+            next.setStartAfter(last);
+            next.collapse(true);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(next);
+            app.richRange = next.cloneRange();
+        }
+        updateRichEmptyState();
+    }
+
+    function onRichEditorKeydown(event) {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+            event.preventDefault();
+            dom.editorForm.requestSubmit();
+            return;
+        }
+        if (event.key === 'Tab' && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey) {
+            event.preventDefault();
+            document.execCommand('insertText', false, '    ');
         }
     }
 
     function toggleEditorPreview() {
+        if (app.editorFormat === 'rich') {
+            return;
+        }
         app.editorPreviewing = !app.editorPreviewing;
         if (app.editorPreviewing) {
             renderEditorPreview();
@@ -897,30 +1580,33 @@
         }
     }
 
+    function editorHtmlIsMeaningful(html) {
+        if (!html || !html.trim()) {
+            return false;
+        }
+        const holder = document.createElement('div');
+        holder.innerHTML = html;
+        return Boolean(holder.textContent.replace(/\s+/g, ''))
+            || Boolean(holder.querySelector('img, hr, table, li, pre'));
+    }
+
     function submitEditor(event) {
         event.preventDefault();
-        const source = dom.editorTextarea.value;
-        if (!source.trim()) {
-            if (app.editorPreviewing) {
-                toggleEditorPreview();
-            }
-            dom.editorTextarea.focus();
-            showToast('先写一点内容再保存');
-            return;
-        }
-
         let html;
         try {
-            html = app.editorFormat === 'html'
-                ? Parser.htmlToHtml(source)
-                : Parser.markdownToHtml(source);
+            html = captureEditorHtml();
         } catch (error) {
             showToast('内容解析失败，请检查格式');
             return;
         }
 
-        if (!html.trim()) {
-            showToast('内容为空，未能保存');
+        if (!editorHtmlIsMeaningful(html)) {
+            if (app.editorFormat === 'rich') {
+                focusRichAtStart();
+            } else {
+                dom.editorTextarea.focus();
+            }
+            showToast('先写一点内容再保存');
             return;
         }
 
@@ -928,27 +1614,30 @@
         const derivedTitle = Parser.firstHeadingText(html) || Parser.topText(html) || '未命名笔记';
         const title = Parser.truncate(enteredTitle || derivedTitle, 64) || '未命名笔记';
 
-        if (app.editorMode === 'edit' && app.editorNoteId) {
-            const updated = Store.updateNote(app.editorNoteId, {title, html});
-            closeEditor();
-            if (updated) {
-                app.currentNoteId = updated.id;
-                renderNote(updated);
-                dom.libraryScreen.hidden = true;
-                dom.noteScreen.hidden = false;
-                app.currentView = 'note';
-                window.scrollTo(0, 0);
-                showToast('笔记已保存');
-            }
+        const wasEdit = app.editorMode === 'edit';
+        let saved;
+        if (wasEdit && app.editorNoteId) {
+            saved = Store.updateNote(app.editorNoteId, {title, html});
+        } else {
+            saved = Store.createNote({title, html});
+        }
+        if (!saved) {
+            showToast('保存失败，请重试');
             return;
         }
 
-        const note = Store.createNote({title, html});
         closeEditor();
         app.searchIndex.clear();
-        clearSearch();
-        openNote(note.id);
-        showToast('笔记已创建');
+        if (!wasEdit) {
+            clearSearch();
+        }
+        app.currentNoteId = saved.id;
+        app.currentView = 'note';
+        dom.libraryScreen.hidden = true;
+        dom.noteScreen.hidden = false;
+        renderNote(saved);
+        window.scrollTo(0, 0);
+        showToast(wasEdit ? '笔记已保存' : '笔记已创建');
     }
 
     function onEditorTextareaKeydown(event) {
@@ -1142,6 +1831,10 @@
     }
 
     function handleBack() {
+        if (!dom.editorLinkLayer.hidden) {
+            closeLinkDialog(true);
+            return true;
+        }
         if (!dom.editorOverlay.hidden) {
             closeEditor();
             return true;

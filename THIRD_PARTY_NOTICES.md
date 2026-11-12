@@ -17,5 +17,19 @@ do not make network requests.
 - File: `app/src/main/assets/www/js/vendor/purify.min.js`
 - License text: `app/src/main/assets/www/js/vendor/LICENSE.dompurify.txt`
 
+## Turndown 7.2.0
+
+- Project: https://github.com/mixmark-io/turndown
+- License: MIT
+- File: `app/src/main/assets/www/js/vendor/turndown.js`
+- License text: `app/src/main/assets/www/js/vendor/LICENSE.turndown.txt`
+
+## turndown-plugin-gfm 1.0.2
+
+- Project: https://github.com/mixmark-io/turndown-plugin-gfm
+- License: MIT
+- File: `app/src/main/assets/www/js/vendor/turndown-plugin-gfm.js`
+- License text: `app/src/main/assets/www/js/vendor/LICENSE.turndown-plugin-gfm.txt`
+
 All other code, artwork and copy in this repository are original work and are
 released under the MIT license in `LICENSE`.

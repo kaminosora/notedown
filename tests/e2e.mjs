@@ -105,11 +105,45 @@ async function clickNoteMenu(page) {
 async function createHtmlNote(page, title, html) {
     await page.locator('#new-note-fab').click();
     await page.locator('#editor-overlay:not([hidden])').waitFor();
-    await page.locator('[data-format="html"]').click();
+    await page.locator('[data-editor-mode="html"]').click();
     await page.locator('#editor-title').fill(title);
     await page.locator('#editor-textarea').fill(html);
     await page.locator('#editor-save').click();
     await page.locator('#note-screen:not([hidden])').waitFor();
+}
+
+async function putCaretAtEnd(page) {
+    await page.evaluate(() => {
+        const rich = document.getElementById('editor-rich');
+        rich.focus();
+        const range = document.createRange();
+        range.selectNodeContents(rich);
+        range.collapse(false);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+    });
+}
+
+async function selectRichText(page, text, length) {
+    return page.evaluate(({text, length}) => {
+        const rich = document.getElementById('editor-rich');
+        const walker = document.createTreeWalker(rich, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            const index = node.nodeValue.indexOf(text);
+            if (index >= 0) {
+                const range = document.createRange();
+                range.setStart(node, index);
+                range.setEnd(node, index + (length || text.length));
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                return true;
+            }
+        }
+        return false;
+    }, {text, length: length || text.length});
 }
 
 const server = await startServer();
@@ -143,10 +177,20 @@ try {
 
 1. one
 2. two`);
+            const exported = NoteMarkdown.htmlToMarkdown(`
+                <h1>导出</h1>
+                <p data-struck="true">划掉的段落</p>
+                <div data-file="来源.md"></div>
+                <ul><li data-task="true" data-checked="true">完成项</li><li data-task="true" data-checked="false">待办项</li></ul>
+            `);
+            const roundTrip = NoteParser.markdownToHtml(exported);
             return {
                 html,
                 markdown,
+                exported,
+                roundTrip,
                 counts: NoteParser.countTasks(markdown),
+                roundTripCounts: NoteParser.countTasks(roundTrip),
                 preserved: NoteParser.sanitizeHtml('<p data-struck="true">x</p><li data-task="true" data-checked="true">task</li>')
             };
         });
@@ -161,6 +205,13 @@ try {
         assert.deepEqual(result.counts, {total: 2, done: 1});
         assert.ok(result.preserved.includes('data-struck'));
         assert.ok(result.preserved.includes('data-checked'));
+        assert.match(result.exported, /- \[x\] 完成项/);
+        assert.match(result.exported, /- \[ \] 待办项/);
+        assert.ok(!result.exported.includes('\\[x\\]'));
+        assert.match(result.exported, /~~划掉的段落~~/);
+        assert.match(result.exported, /data-file="来源\.md"/);
+        assert.ok(result.roundTrip.includes('data-file="来源.md"'));
+        assert.deepEqual(result.roundTripCounts, {total: 2, done: 1});
         assert.deepEqual(errors, []);
         await context.close();
         console.log('PASS parser + sanitizer');
@@ -199,7 +250,107 @@ try {
         console.log('PASS checkbox + strike');
     }
 
-    /* 3. Editor + reorder + auto-scroll on an ordered list. */
+    /* 3. Rich editor, Markdown and HTML modes. */
+    {
+        const {context, page, errors} = await newPage(browser, baseUrl);
+        await page.locator('.note-card').first().click();
+        await page.waitForTimeout(200);
+        assert.equal(await page.locator('#edit-note-button').isVisible(), true);
+        await page.locator('#edit-note-button').click();
+        await page.locator('#editor-overlay:not([hidden])').waitFor();
+        await page.waitForTimeout(250);
+
+        assert.equal(await page.locator('#editor-mode-tabs [data-editor-mode]').count(), 3);
+        assert.equal(await page.locator('#editor-rich').isVisible(), true);
+        assert.ok(await page.locator('#rich-toolbar .rich-tool').count() >= 15);
+        assert.equal(await page.locator('#editor-preview-toggle').isHidden(), true);
+
+        // Checkboxes stay interactive while editing.
+        const editingTask = page.locator('#editor-rich li[data-task="true"]').nth(2);
+        assert.equal(await editingTask.getAttribute('data-checked'), 'false');
+        await page.locator('#editor-rich .nt-checkbox').nth(2).click();
+        await page.waitForTimeout(120);
+        assert.equal(await editingTask.getAttribute('data-checked'), 'true');
+
+        // Directly edit the visible text, then bold part of it.
+        await putCaretAtEnd(page);
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('Enter');
+        await page.keyboard.type('富文本编辑测试');
+        await page.waitForTimeout(120);
+        assert.equal(await selectRichText(page, '富文本编辑测试'), true);
+        await page.locator('[data-rich-action="bold"]').click();
+        await page.waitForTimeout(120);
+        assert.equal(await page.locator('#editor-rich b, #editor-rich strong').count() > 0, true);
+
+        // Wrap part of the new text in a link using the toolbar dialog.
+        await selectRichText(page, '富文本', 3);
+        await page.locator('[data-rich-action="link"]').click();
+        await page.locator('#editor-link-layer:not([hidden])').waitFor();
+        await page.locator('#editor-link-input').fill('https://example.com/linked');
+        await page.locator('#editor-link-form button[type="submit"]').click();
+        await page.waitForTimeout(180);
+        assert.equal(await page.locator('#editor-rich a[href="https://example.com/linked"]').count(), 1);
+
+        // Add a new task from a normal paragraph.
+        await putCaretAtEnd(page);
+        await page.keyboard.press('Enter');
+        await page.keyboard.type('新增清单项');
+        await page.waitForTimeout(120);
+        assert.equal(await selectRichText(page, '新增清单项'), true);
+        await page.locator('[data-rich-action="task-list"]').click();
+        await page.waitForTimeout(180);
+        assert.equal(await page.locator('#editor-rich li[data-task="true"]').count(), 4);
+
+        // Switch to Markdown and verify round-tripping and preview.
+        await page.locator('[data-editor-mode="markdown"]').click();
+        await page.waitForTimeout(200);
+        const markdown = await page.locator('#editor-textarea').inputValue();
+        assert.match(markdown, /- \[x\]/);
+        assert.match(markdown, /- \[ \]/);
+        assert.ok(markdown.includes('富文本'));
+        assert.ok(markdown.includes('编辑测试'));
+        assert.ok(markdown.includes('https://example.com/linked'));
+        assert.ok(!markdown.includes('\\[x\\]'));
+        await page.locator('#editor-textarea').focus();
+        await page.keyboard.press('Control+End');
+        await page.keyboard.type('\n\n来自 Markdown 的追加段落。');
+        await page.locator('#editor-preview-toggle').click();
+        await page.waitForTimeout(180);
+        assert.match(await page.locator('#editor-preview').innerText(), /来自 Markdown 的追加段落/);
+        await page.locator('[data-editor-mode="rich"]').click();
+        await page.waitForTimeout(180);
+        assert.match(await page.locator('#editor-rich').innerText(), /来自 Markdown 的追加段落/);
+        await page.locator('#editor-save').click();
+        await page.locator('#editor-overlay').waitFor({state: 'hidden'});
+        await page.waitForTimeout(300);
+        assert.equal(await page.locator('#note-screen').isVisible(), true);
+        assert.match(await page.locator('#note-content').innerText(), /富文本编辑测试/);
+        assert.match(await page.locator('#note-content').innerText(), /来自 Markdown 的追加段落/);
+        assert.equal(await page.locator('#note-content a[href="https://example.com/linked"]').count(), 1);
+        assert.equal(await page.locator('#note-content li[data-task="true"]').count(), 4);
+        assert.equal(await page.locator('#note-content li[data-task="true"]').nth(2).getAttribute('data-checked'), 'true');
+
+        // HTML mode still works on an existing note.
+        await page.locator('#edit-note-button').click();
+        await page.locator('#editor-overlay:not([hidden])').waitFor();
+        await page.locator('[data-editor-mode="html"]').click();
+        await page.waitForTimeout(150);
+        const htmlSource = await page.locator('#editor-textarea').inputValue();
+        assert.ok(htmlSource.includes('data-task="true"'));
+        await page.locator('#editor-textarea').focus();
+        await page.keyboard.press('Control+End');
+        await page.keyboard.type('\n<p>来自 HTML 的追加段落。</p>');
+        await page.locator('#editor-save').click();
+        await page.locator('#editor-overlay').waitFor({state: 'hidden'});
+        await page.waitForTimeout(250);
+        assert.match(await page.locator('#note-content').innerText(), /来自 HTML 的追加段落/);
+        assert.deepEqual(errors, []);
+        await context.close();
+        console.log('PASS rich editor + Markdown/HTML modes');
+    }
+
+    /* 4. Editor + reorder + auto-scroll on an ordered list. */
     {
         const {context, page, errors} = await newPage(browser, baseUrl);
         const items = Array.from({length: 34}, (_, index) => (

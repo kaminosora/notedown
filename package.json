@@ -1,6 +1,6 @@
 {
   "name": "notedown",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "description": "Local-first Markdown and HTML notes for Android",
   "scripts": {

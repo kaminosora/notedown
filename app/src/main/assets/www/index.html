@@ -203,6 +203,11 @@
                 <span id="note-topbar-title" class="topbar-title">笔记</span>
             </div>
             <div class="topbar-actions">
+                <button id="edit-note-button" class="icon-button" type="button" aria-label="编辑笔记">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="m14.7 5.3 4 4M4 20l4.3-1 10.4-10.4a2.1 2.1 0 0 0-3-3L5.3 16 4 20Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
                 <button id="strike-button" class="icon-button strike-button" type="button" aria-label="划线模式" aria-pressed="false">
                     <span class="strike-glyph" aria-hidden="true">S</span>
                 </button>
@@ -294,19 +299,37 @@
                 <span class="field-label">标题 <small>可留空，自动从内容提取</small></span>
                 <input id="editor-title" type="text" maxlength="80" autocomplete="off" placeholder="未命名笔记">
             </label>
-            <div class="editor-toolbar">
-                <div id="editor-format-switch" class="segmented" role="group" aria-label="输入格式">
-                    <button class="is-active" type="button" data-format="markdown">Markdown</button>
-                    <button type="button" data-format="html">HTML</button>
+            <div class="editor-modebar">
+                <div id="editor-mode-tabs" class="segmented editor-mode-tabs" role="tablist" aria-label="编辑模式">
+                    <button class="is-active" type="button" role="tab" aria-selected="true" data-editor-mode="rich">富文本</button>
+                    <button type="button" role="tab" aria-selected="false" data-editor-mode="markdown">Markdown</button>
+                    <button type="button" role="tab" aria-selected="false" data-editor-mode="html">HTML</button>
                 </div>
-                <span id="editor-format-label" class="format-label" hidden>HTML 源码</span>
-                <button id="editor-preview-toggle" class="text-button preview-toggle" type="button" aria-pressed="false">预览</button>
+                <button id="editor-preview-toggle" class="text-button preview-toggle" type="button" aria-pressed="false" hidden>预览</button>
             </div>
-            <textarea id="editor-textarea" class="editor-textarea" spellcheck="false" placeholder="从这里开始写……"></textarea>
+            <div id="rich-toolbar" class="rich-toolbar" role="toolbar" aria-label="富文本格式"></div>
+            <div id="editor-rich" class="note-content editor-rich" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="富文本正文" data-placeholder="从这里开始写……"></div>
+            <textarea id="editor-textarea" class="editor-textarea" spellcheck="false" placeholder="从这里开始写……" hidden></textarea>
             <div id="editor-preview" class="note-content editor-preview" hidden></div>
-            <p id="editor-hint" class="editor-hint">支持 GFM 任务列表、表格、代码块与原生 HTML。保存后会进行安全净化。</p>
+            <p id="editor-hint" class="editor-hint">直接点选文字即可编辑；工具栏支持标题、加粗、列表、任务与链接。保存后进行安全净化。</p>
         </div>
     </form>
+    <div id="editor-link-layer" class="editor-link-layer" hidden>
+        <div id="editor-link-backdrop" class="editor-link-backdrop"></div>
+        <section class="editor-link-dialog" role="dialog" aria-modal="true" aria-labelledby="editor-link-title">
+            <form id="editor-link-form" novalidate>
+                <p class="kicker">Link</p>
+                <h2 id="editor-link-title">插入链接</h2>
+                <label class="field-label" for="editor-link-input">链接地址</label>
+                <input id="editor-link-input" class="text-input" type="url" inputmode="url" autocomplete="off" placeholder="https://example.com">
+                <p class="editor-link-hint">将应用到刚才选中的文字。</p>
+                <div class="dialog-actions">
+                    <button id="editor-link-cancel" class="button button-outline" type="button">取消</button>
+                    <button class="button button-primary" type="submit">插入</button>
+                </div>
+            </form>
+        </section>
+    </div>
 </section>
 
 <input id="file-input" type="file" multiple accept=".md,.markdown,.mdown,.mkd,.html,.htm,.xhtml,.txt,.text,text/markdown,text/html,text/plain" hidden>
@@ -315,7 +338,10 @@
 
 <script src="js/vendor/marked.umd.js"></script>
 <script src="js/vendor/purify.min.js"></script>
+<script src="js/vendor/turndown.js"></script>
+<script src="js/vendor/turndown-plugin-gfm.js"></script>
 <script src="js/parser.js"></script>
+<script src="js/export.js"></script>
 <script src="js/store.js"></script>
 <script src="js/drag.js"></script>
 <script src="js/app.js"></script>

@@ -2,29 +2,33 @@
 
 **把散落的文字，收进一页纸里。**
 
-一个 Android 本地笔记应用：导入 Markdown、HTML 与纯文本，合并成一篇可勾选、可划线、可长按拖动排序的笔记。没有账号，没有同步服务，内容只保存在设备上。
+一个 Android 本地笔记应用：导入 Markdown、HTML 与纯文本，合并成一篇可勾选、可划线、可长按拖动排序、也能直接编辑的笔记。没有账号，没有同步服务，内容只保存在设备上。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-b65037.svg)](LICENSE)
 
 <p align="center">
-  <img src="docs/screenshots/library-mobile.png" width="30%" alt="Notedown 书架">
-  <img src="docs/screenshots/note-mobile.png" width="30%" alt="Markdown 笔记阅读">
-  <img src="docs/screenshots/drag-reorder-mobile.png" width="30%" alt="长按拖动排序">
+  <img src="docs/screenshots/library-mobile.png" width="32%" alt="Notedown 书架">
+  <img src="docs/screenshots/note-mobile.png" width="32%" alt="Markdown 笔记阅读">
+  <img src="docs/screenshots/drag-reorder-mobile.png" width="32%" alt="长按拖动排序">
 </p>
 
 ## 功能
 
 - **两种格式，一本笔记**：原生解析 Markdown（GFM）和 HTML，也支持 `.txt`。
 - **多文件合并**：一次选择多个文件，导入为一篇笔记；之后还能继续追加文件。
+- **三种编辑模式**：打开笔记右上角的铅笔按钮，即可选择
+  - **富文本**：像 Typora 一样直接点选可见文字修改；工具栏支持标题、粗体、斜体、删除线、行内代码、链接、引用、代码块、有序/无序/任务列表、分割线、撤销、清除格式。
+  - **Markdown**：把当前笔记转换成 Markdown 源码编辑，支持预览；完整往返任务列表、表格、删除线、来源标签。
+  - **HTML**：直接编辑安全 HTML。
 - **勾选与划去**：任务列表勾选后自动划线；单独的划线模式可点按任意段落或列表项切换划去。
 - **长按拖动排序**：有序、无序列表都可以长按拖动，松手即保存。序号会随 DOM 顺序自动重排。
 - **丝滑拖拽**：拖拽幽灵跟随手指，其他条目使用 FLIP 位移动画；松手后回弹归位。
 - **边缘自动滚动**：拖到屏幕上下边缘附近自动滚动。越靠近边缘越快，速度随距离连续变化，并显示边缘渐变提示。
 - **本地优先**：笔记写入应用私有目录，无账号、无遥测；断网也能用。
 - **可维护的极简架构**：Android 侧只有一个 Activity，界面使用原生 HTML/CSS/JS，不引入前端框架、数据库或 AndroidX。
-- **安全 HTML**：所有导入内容经过 DOMPurify 白名单净化，脚本、内联样式、事件属性、危险 URL 都会被移除。
+- **安全 HTML**：所有导入、粘贴和编辑内容都会经过 DOMPurify 白名单净化，脚本、内联样式、事件属性、危险 URL 都会被移除。
 - **浅色 / 深色 / 跟随系统**，偏好会持久保存。
-- **编辑与整理**：Markdown/HTML 编辑器带预览、标题重命名、搜索、删除确认。
+- **整理**：标题重命名、搜索、删除确认，以及 Markdown/HTML 预览。
 
 ## 技术栈
 
@@ -32,12 +36,14 @@
 | --- | --- |
 | Android 容器 | Java 17，单个 `Activity` + `WebView`，无第三方 Android 依赖，无 AndroidX |
 | 界面 | 原生 HTML / CSS / JavaScript，无框架、无构建步骤 |
-| Markdown | [marked](https://github.com/markedjs/marked) 12（本地内置，MIT） |
+| 富文本编辑 | 原生 `contenteditable` + 自定义格式工具栏，不引入编辑器框架 |
+| Markdown 解析 | [marked](https://github.com/markedjs/marked) 12（本地内置，MIT） |
+| HTML → Markdown | [Turndown](https://github.com/mixmark-io/turndown) 7 + GFM 插件（本地内置，MIT） |
 | HTML 净化 | [DOMPurify](https://github.com/cure53/DOMPurify) 3.4（本地内置，Apache-2.0 / MPL-2.0） |
 | 存储 | 应用私有目录中的原子写入 JSON 文件（`AtomicFile`）；浏览器调试时回退到 `localStorage` |
 | 构建 | Gradle 8.11.1 + Android Gradle Plugin 8.9.2，compileSdk 35 / minSdk 26 |
 
-**为什么这样选？** 笔记的核心难点是排版、长按手势和连续动画。浏览器内核天然擅长这些；Safari 式的手势和渲染都可以用 CSS/JS 直接调试，而不必在 Compose 或 View 层重复实现富文本解析。Android 壳只负责安全存储、系统文件选择器、震动和返回键。整个 APK 只有约 110 KB，打开 Android Studio 或普通浏览器都能调试。
+**为什么这样选？** 笔记的核心难点是排版、手势、连续动画与直接编辑。浏览器内核天然擅长这些；用 `contenteditable` 就能把可见文字当作编辑器，不必在 Compose 或 View 层重复实现富文本。Android 壳只负责安全存储、系统文件选择器、震动和返回键。APK 不到 200 KB，打开 Android Studio 或普通浏览器都能调试。
 
 ## 安装
 
@@ -78,7 +84,7 @@ python -m http.server 8765 --directory app/src/main/assets/www
 
 ## 自动化测试
 
-浏览器端测试覆盖了解析、HTML 净化、勾选、划线、编辑、导入合并、长按拖拽、FLIP 动画和自动滚动。
+浏览器端测试覆盖解析、HTML 净化、富文本直改、格式工具栏、三模式往返、任务、链接、导入合并、长按拖拽、FLIP 动画和自动滚动。
 
 ```bash
 npm install
@@ -95,8 +101,22 @@ npm run test:e2e
 
 测试不依赖 Android SDK；它针对与 APK 内完全相同的 WebView 资源运行。
 
+## 编辑模式说明
+
+<p align="center">
+  <img src="docs/screenshots/editor-rich-mobile.png" width="45%" alt="富文本直接编辑">
+  <img src="docs/screenshots/editor-markdown-mobile.png" width="45%" alt="Markdown 源码编辑">
+</p>
+
+- **富文本**：所见即所得。选中文字后点工具栏的格式按钮；任务列表复选框在编辑界面中也可直接点选。粘贴的 HTML 会先净化再插入。
+- **Markdown**：打开时由当前安全 HTML 即时转换，保存时再由 marked 转回 HTML。任务勾选状态、列表、表格、链接、删除线和导入来源标签都会保留。
+- **HTML**：适合精确控制标签结构；保存时会重新运行安全净化。
+- 模式间的切换会先保存当前模式的改动，再转换到目标模式。复杂的自定义 HTML（例如内联样式）在切换时会被规范化。
+
 ## 交互细节
 
+- 笔记页右上角的 **铅笔按钮** 直接进入富文本编辑；也可以从 `⋯` 菜单选择“编辑笔记”。
+- 富文本工具栏在手机上会自动换行；点击按钮不会收起软键盘，也不会丢失当前选区。
 - **长按** 列表项 360 ms 进入拖拽，位移不超过 9 px 前仍可正常滚动页面。
 - **FLIP** 动画时长 185 ms，拖拽幽灵使用 `translate3d`，不触发布局抖动。
 - **自动滚动** 范围为视口高度的 18%，限制在 88–150 px 内；最大速度 20 px / 60 Hz 帧，越靠近边缘速度按幂函数增长。
@@ -129,10 +149,11 @@ app/src/main/
 │   ├── css/app.css
 │   └── js/
 │       ├── parser.js            # Markdown/HTML → 安全规范化 HTML
+│       ├── export.js            # 安全 HTML → Markdown（含任务/来源标签）
 │       ├── store.js             # 本地 JSON 存储
 │       ├── drag.js              # 长按拖拽、FLIP、边缘自动滚动
-│       ├── app.js               # 界面与状态
-│       └── vendor/              # marked + DOMPurify（含许可证）
+│       ├── app.js               # 界面、编辑模式与格式工具栏
+│       └── vendor/              # marked + DOMPurify + Turndown（含许可证）
 └── res/                         # 主题、图标
 tests/e2e.mjs                    # 浏览器端到端测试
 ```
@@ -159,8 +180,8 @@ tests/e2e.mjs                    # 浏览器端到端测试
 
 ## 已知限制
 
-- 不是所见即所得的富文本编辑器：新笔记用 Markdown 或 HTML 创作，已有笔记通过安全 HTML 源码编辑。
-- 暂不支持图片附件、导出、云同步或笔记间拖拽。
+- 富文本编辑基于浏览器 `contenteditable`，极复杂的 Office/网页粘贴结构会被简化为安全语义标签。
+- 暂不支持图片附件、导出、云同步；长按拖拽也不会跨列表搬移。
 - 自动滚动依赖浏览器 `requestAnimationFrame`；极低端设备上可能略有降帧。
 - 使用 debug 签名，因此不能在 Play Store 直接发布；如需正式发布，请配置自己的 release keystore。
 
