@@ -63,12 +63,14 @@ public class MainActivity extends Activity {
     private static final long MAX_SAVED_DATA_BYTES = 12L * 1024L * 1024L;
     private static final int LIGHT_BACKGROUND = Color.rgb(244, 240, 231);
     private static final int DARK_BACKGROUND = Color.rgb(23, 22, 19);
+    private static final int SAFE_TOP_EXTRA_DP = 10;
 
     private static final String BACK_SCRIPT =
             "(function(){try{return !!(window.Notedown&&window.Notedown.handleBack&&window.Notedown.handleBack());}catch(e){return false;}})()";
 
     private WebView webView;
     private FrameLayout rootLayout;
+    private int safeTopExtraPx;
     private AtomicFile notesFile;
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private boolean pageReady;
@@ -80,6 +82,8 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         configureWindow();
+        safeTopExtraPx = Math.round(
+                SAFE_TOP_EXTRA_DP * getResources().getDisplayMetrics().density);
         createLayout();
         configureWebView();
         configureContentView();
@@ -167,15 +171,7 @@ public class MainActivity extends Activity {
         });
 
         webView.setOnApplyWindowInsetsListener((view, insets) -> {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                applyModernInsets(view, insets);
-            } else {
-                view.setPadding(
-                        insets.getSystemWindowInsetLeft(),
-                        insets.getSystemWindowInsetTop(),
-                        insets.getSystemWindowInsetRight(),
-                        insets.getSystemWindowInsetBottom());
-            }
+            applySafeArea(insets);
             return insets;
         });
     }
@@ -258,12 +254,44 @@ public class MainActivity extends Activity {
         }
     }
 
-    @TargetApi(Build.VERSION_CODES.R)
-    private void applyModernInsets(View view, WindowInsets insets) {
-        android.graphics.Insets bars = insets.getInsets(
-                WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-        android.graphics.Insets ime = insets.getInsets(WindowInsets.Type.ime());
-        view.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
+    /**
+     * Reserve the top safe area in the native layout instead of relying on
+     * WebView padding. CSS sticky/fixed headers must never end up underneath a
+     * split status bar or a central camera cutout. The extra 10dp gives the
+     * top bar breathing room and keeps its buttons outside the system
+     * status-bar gesture area.
+     */
+    @SuppressWarnings("deprecation")
+    private void applySafeArea(WindowInsets insets) {
+        int left;
+        int top;
+        int right;
+        int bottom;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            android.graphics.Insets bars = insets.getInsets(
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            android.graphics.Insets ime = insets.getInsets(WindowInsets.Type.ime());
+            left = bars.left;
+            top = bars.top;
+            right = bars.right;
+            bottom = Math.max(bars.bottom, ime.bottom);
+        } else {
+            left = insets.getSystemWindowInsetLeft();
+            top = insets.getSystemWindowInsetTop();
+            right = insets.getSystemWindowInsetRight();
+            bottom = insets.getSystemWindowInsetBottom();
+        }
+
+        int reservedTop = top + safeTopExtraPx;
+        if (rootLayout != null && rootLayout.getPaddingTop() != reservedTop) {
+            rootLayout.setPadding(0, reservedTop, 0, 0);
+        }
+        if (webView != null
+                && (webView.getPaddingLeft() != left
+                || webView.getPaddingRight() != right
+                || webView.getPaddingBottom() != bottom)) {
+            webView.setPadding(left, 0, right, bottom);
+        }
     }
 
     private void setSystemBarAppearance(boolean dark) {
