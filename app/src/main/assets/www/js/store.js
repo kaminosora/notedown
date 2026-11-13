@@ -26,6 +26,11 @@
     let storageMode = nativeBridge ? 'native' : 'local';
     let saveErrorHandler = null;
     let lastLoadWarning = '';
+    // Set when stored data exists but cannot be read. Writes stay blocked until
+    // the user restores a backup or explicitly starts over, so the unreadable
+    // file is never overwritten by an empty notebook.
+    let loadError = null;
+    let writesBlocked = false;
 
     function freshState() {
         return {
@@ -105,12 +110,12 @@
 
     function readNative() {
         if (!nativeBridge) {
-            return '';
+            return null;
         }
         try {
             return nativeBridge.loadData() || '';
         } catch (error) {
-            return '';
+            return null;
         }
     }
 
@@ -126,12 +131,29 @@
         }
     }
 
+    function fail(source, message) {
+        loadError = {source, message};
+        writesBlocked = true;
+        return freshState();
+    }
+
     function load() {
+        loadError = null;
+        writesBlocked = false;
         if (nativeBridge) {
-            const nativeData = parseDocument(readNative(), '本地存储');
+            const rawNative = readNative();
+            if (rawNative === null) {
+                return fail('本地存储', '读取本地笔记数据失败');
+            }
+            const nativeData = parseDocument(rawNative, '本地存储');
             if (nativeData) {
                 storageMode = 'native';
                 return nativeData;
+            }
+            if (rawNative) {
+                // The native file is authoritative. Falling back to the browser
+                // copy would hide the damage and an empty save would replace it.
+                return fail('本地存储', lastLoadWarning || '本地笔记数据无法解析');
             }
             const localData = parseDocument(readLocal(), '浏览器备份');
             if (localData) {
@@ -194,11 +216,52 @@
         return false;
     }
 
-    function commit(candidate) {
+    function commit(candidate, force) {
+        if (!candidate) {
+            return false;
+        }
+        if (writesBlocked && !force) {
+            notifyError('本地笔记数据尚未恢复，已暂停保存');
+            return false;
+        }
         if (!persist(candidate)) {
             return false;
         }
         state = candidate;
+        return true;
+    }
+
+    /**
+     * Replace the unreadable document with one decoded from a backup. This is
+     * the only write allowed while recovery is pending.
+     */
+    function restore(raw) {
+        let candidate;
+        try {
+            candidate = normaliseState(typeof raw === 'string' ? JSON.parse(raw) : raw);
+        } catch (error) {
+            return false;
+        }
+        if (!candidate) {
+            return false;
+        }
+        if (!commit(candidate, true)) {
+            return false;
+        }
+        loadError = null;
+        writesBlocked = false;
+        lastLoadWarning = '';
+        return true;
+    }
+
+    /** Explicitly discard unreadable data and start with an empty notebook. */
+    function reset() {
+        if (!commit(freshState(), true)) {
+            return false;
+        }
+        loadError = null;
+        writesBlocked = false;
+        lastLoadWarning = '';
         return true;
     }
 
@@ -336,7 +399,12 @@
         updateContent,
         renameNote,
         deleteNote,
+        restore,
+        reset,
         setSaveErrorHandler,
+        getLoadError() {
+            return loadError ? Object.assign({}, loadError) : null;
+        },
         get storageMode() {
             return storageMode;
         },

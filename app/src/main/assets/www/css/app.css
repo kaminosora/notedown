@@ -2813,3 +2813,52 @@ body.is-dragging * {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* =========================================================
+   Recovery banner
+   ========================================================= */
+
+.recovery-banner {
+    margin: 18px 0 22px;
+    padding: 20px 22px;
+    border: 1px solid var(--line-strong);
+    border-left: 4px solid var(--danger);
+    border-radius: 18px;
+    background: var(--surface);
+    box-shadow: var(--shadow-soft);
+}
+
+.recovery-kicker {
+    margin: 0 0 6px;
+    color: var(--danger);
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.recovery-title {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-family: var(--font-display);
+    font-size: 21px;
+    line-height: 1.3;
+}
+
+.recovery-copy {
+    margin: 0 0 16px;
+    color: var(--text-soft);
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.recovery-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.recovery-actions .button {
+    flex: 1 1 140px;
+}
