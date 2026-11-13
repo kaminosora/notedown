@@ -2,6 +2,4 @@
 <resources>
     <color name="paper">#F4F0E7</color>
     <color name="accent">#B65037</color>
-    <color name="icon_background">#B65037</color>
-    <color name="icon_foreground">#FBF7EF</color>
 </resources>

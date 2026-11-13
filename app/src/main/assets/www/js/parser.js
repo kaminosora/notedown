@@ -34,7 +34,7 @@
 
     const ALLOWED_ATTRIBUTES = [
         'href', 'title', 'alt', 'src', 'start', 'reversed', 'type',
-        'checked', 'disabled', 'colspan', 'rowspan', 'scope', 'align'
+        'checked', 'disabled', 'colspan', 'rowspan', 'scope', 'align', 'class'
     ];
 
     const APP_DATA_ATTRIBUTES = new Set([
@@ -53,7 +53,7 @@
             'canvas', 'dialog', 'frame', 'frameset', 'applet', 'noscript'
         ],
         FORBID_ATTR: [
-            'style', 'class', 'id', 'name', 'target', 'rel', 'srcset',
+            'style', 'id', 'name', 'target', 'rel', 'srcset',
             'sizes', 'formaction', 'autofocus', 'contenteditable', 'draggable'
         ],
         FORBID_CONTENTS: [
@@ -63,8 +63,8 @@
         KEEP_CONTENT: true,
         SANITIZE_DOM: true,
         SAFE_FOR_TEMPLATES: false,
-        ALLOW_UNKNOWN_PROTOCOLS: false,
-        USE_PROFILES: {html: true}
+        // USE_PROFILES overrides ALLOWED_TAGS; keep the explicit allowlist.
+        ALLOW_UNKNOWN_PROTOCOLS: false
     };
 
     const MARKDOWN_OPTIONS = {
@@ -120,6 +120,21 @@
         }
     }
 
+    function normaliseClasses(fragment) {
+        for (const element of fragment.querySelectorAll('[class]')) {
+            // Code language is document data; all presentation/editor classes
+            // are transient and must never enter the canonical document.
+            const language = element.tagName === 'CODE'
+                ? Array.from(element.classList).find((name) => /^language-[A-Za-z0-9_+-]{1,64}$/.test(name))
+                : null;
+            if (language) {
+                element.setAttribute('class', language);
+            } else {
+                element.removeAttribute('class');
+            }
+        }
+    }
+
     function normaliseLinksAndImages(fragment) {
         for (const anchor of fragment.querySelectorAll('a')) {
             const raw = (anchor.getAttribute('href') || '').trim();
@@ -162,6 +177,9 @@
         if (!textNode) {
             return null;
         }
+        if (textNode.parentElement.closest('code, pre')) {
+            return null;
+        }
         const match = textNode.nodeValue.match(/^\s*\[([ xX])\]\s+/);
         if (!match) {
             return null;
@@ -173,7 +191,7 @@
     function normaliseTasks(fragment) {
         const items = fragment.querySelectorAll('li');
         for (const li of items) {
-            const ownInputs = Array.from(li.querySelectorAll('input')).filter((input) => input.closest('li') === li);
+            const ownInputs = Array.from(li.querySelectorAll('input[type="checkbox"]')).filter((input) => input.closest('li') === li);
             let checked = li.getAttribute('data-task') === 'true'
                 ? li.getAttribute('data-checked') === 'true'
                 : null;
@@ -181,6 +199,11 @@
             if (ownInputs.length > 0) {
                 const first = ownInputs[0];
                 checked = first.checked || first.hasAttribute('checked');
+                // marked inserts a separator after its checkbox, including a
+                // newline in loose lists. It is UI syntax, not task content.
+                if (first.nextSibling && first.nextSibling.nodeType === Node.TEXT_NODE) {
+                    first.nextSibling.nodeValue = first.nextSibling.nodeValue.replace(/^\s+/, '');
+                }
             }
 
             const markerState = leadingTaskMarker(li);
@@ -225,6 +248,7 @@
         holder.innerHTML = sanitized;
         const fragment = holder.content;
         removeUnsafeDataAttributes(fragment);
+        normaliseClasses(fragment);
         normaliseLinksAndImages(fragment);
         normaliseTasks(fragment);
         return holder.innerHTML;
@@ -444,16 +468,16 @@
         }
         const clone = root.cloneNode(true);
 
-        for (const element of clone.querySelectorAll('.nt-checkbox, .drag-ghost')) {
-            element.remove();
-        }
-
         for (const li of clone.querySelectorAll('li[data-task="true"]')) {
             const checkbox = li.querySelector(':scope > input.nt-checkbox');
             if (checkbox) {
                 li.setAttribute('data-checked', checkbox.checked ? 'true' : 'false');
             }
             li.classList.toggle('is-done', li.getAttribute('data-checked') === 'true');
+        }
+
+        for (const element of clone.querySelectorAll('.nt-checkbox, .drag-ghost')) {
+            element.remove();
         }
 
         for (const element of clone.querySelectorAll('[data-struck]')) {
@@ -473,7 +497,6 @@
         }
 
         for (const element of clone.querySelectorAll('*')) {
-            element.removeAttribute('class');
             element.removeAttribute('contenteditable');
             element.removeAttribute('tabindex');
             element.removeAttribute('aria-label');
@@ -481,6 +504,7 @@
             element.removeAttribute('role');
         }
 
+        normaliseClasses(clone);
         return clone.innerHTML.trim();
     }
 

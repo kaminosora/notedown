@@ -157,7 +157,7 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 pageReady = true;
-                view.requestApplyInsets();
+                rootLayout.requestApplyInsets();
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
@@ -169,16 +169,12 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-
-        webView.setOnApplyWindowInsetsListener((view, insets) -> {
-            applySafeArea(insets);
-            return insets;
-        });
     }
 
     private void createLayout() {
         rootLayout = new FrameLayout(this);
         rootLayout.setBackgroundColor(LIGHT_BACKGROUND);
+        rootLayout.setOnApplyWindowInsetsListener((view, insets) -> applySafeArea(insets));
         notesFile = new AtomicFile(new java.io.File(getFilesDir(), "notes.json"));
         setContentView(rootLayout);
     }
@@ -228,6 +224,7 @@ public class MainActivity extends Activity {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT);
         rootLayout.addView(webView, params);
+        rootLayout.requestApplyInsets();
     }
 
     private boolean handleNavigation(Uri uri) {
@@ -255,43 +252,76 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * Reserve the top safe area in the native layout instead of relying on
-     * WebView padding. CSS sticky/fixed headers must never end up underneath a
-     * split status bar or a central camera cutout. The extra 10dp gives the
-     * top bar breathing room and keeps its buttons outside the system
-     * status-bar gesture area.
+     * Resize the WebView's actual bounds, rather than padding its contents:
+     * fixed/sticky web controls and the editor's scroller must fit above IME.
+     * Return zeroed handled insets so newer WebViews do not apply them again.
+     * Keep dispatching an inset object when IME hides, avoiding stale padding.
      */
     @SuppressWarnings("deprecation")
-    private void applySafeArea(WindowInsets insets) {
+    private WindowInsets applySafeArea(WindowInsets insets) {
         int left;
         int top;
         int right;
         int bottom;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            android.graphics.Insets bars = insets.getInsets(
-                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-            android.graphics.Insets ime = insets.getInsets(WindowInsets.Type.ime());
-            left = bars.left;
-            top = bars.top;
-            right = bars.right;
-            bottom = Math.max(bars.bottom, ime.bottom);
+            android.graphics.Insets safe = insets.getInsets(
+                    WindowInsets.Type.systemBars()
+                            | WindowInsets.Type.displayCutout()
+                            | WindowInsets.Type.ime());
+            left = safe.left;
+            top = safe.top;
+            right = safe.right;
+            bottom = safe.bottom;
         } else {
+            // On API 26-29 adjustResize supplies the keyboard obstruction via
+            // the legacy system-window insets. Do not add it a second time.
             left = insets.getSystemWindowInsetLeft();
             top = insets.getSystemWindowInsetTop();
             right = insets.getSystemWindowInsetRight();
             bottom = insets.getSystemWindowInsetBottom();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                    && insets.getDisplayCutout() != null) {
+                left = Math.max(left, insets.getDisplayCutout().getSafeInsetLeft());
+                top = Math.max(top, insets.getDisplayCutout().getSafeInsetTop());
+                right = Math.max(right, insets.getDisplayCutout().getSafeInsetRight());
+                bottom = Math.max(bottom, insets.getDisplayCutout().getSafeInsetBottom());
+            }
         }
 
         int reservedTop = top + safeTopExtraPx;
-        if (rootLayout != null && rootLayout.getPaddingTop() != reservedTop) {
-            rootLayout.setPadding(0, reservedTop, 0, 0);
+        if (rootLayout.getPaddingLeft() != left
+                || rootLayout.getPaddingTop() != reservedTop
+                || rootLayout.getPaddingRight() != right
+                || rootLayout.getPaddingBottom() != bottom) {
+            rootLayout.setPadding(left, reservedTop, right, bottom);
         }
-        if (webView != null
-                && (webView.getPaddingLeft() != left
-                || webView.getPaddingRight() != right
-                || webView.getPaddingBottom() != bottom)) {
-            webView.setPadding(left, 0, right, bottom);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return new WindowInsets.Builder(insets)
+                    .setInsets(WindowInsets.Type.systemBars()
+                                    | WindowInsets.Type.displayCutout()
+                                    | WindowInsets.Type.ime(),
+                            android.graphics.Insets.NONE)
+                    .setInsetsIgnoringVisibility(WindowInsets.Type.systemBars()
+                                    | WindowInsets.Type.displayCutout(),
+                            android.graphics.Insets.NONE)
+                    .setDisplayCutout(null)
+                    .build();
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            return new WindowInsets.Builder(insets)
+                    .setSystemWindowInsets(android.graphics.Insets.NONE)
+                    .setStableInsets(android.graphics.Insets.NONE)
+                    .setDisplayCutout(null)
+                    .build();
+        }
+        WindowInsets remaining = new WindowInsets(insets)
+                .replaceSystemWindowInsets(0, 0, 0, 0)
+                .consumeStableInsets();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            remaining = remaining.consumeDisplayCutout();
+        }
+        return remaining;
     }
 
     private void setSystemBarAppearance(boolean dark) {
@@ -427,10 +457,6 @@ public class MainActivity extends Activity {
                     errors.put(name + "：文件超过 1.5 MB");
                     continue;
                 }
-                if (containsNullByte(bytes)) {
-                    errors.put(name + "：看起来不是文本文件");
-                    continue;
-                }
                 totalBytes += bytes.length;
                 if (totalBytes > MAX_TOTAL_BYTES) {
                     errors.put("本次导入的文件总大小超过 6 MB");
@@ -439,6 +465,12 @@ public class MainActivity extends Activity {
                 String text = decodeText(bytes);
                 if (text == null) {
                     errors.put(name + "：无法识别文件编码");
+                    continue;
+                }
+                // UTF-16 text routinely contains zero bytes. Reject actual
+                // NUL characters only after BOM-aware decoding instead.
+                if (text.indexOf('\0') >= 0) {
+                    errors.put(name + "：看起来不是文本文件");
                     continue;
                 }
                 JSONObject file = new JSONObject();
@@ -551,16 +583,6 @@ public class MainActivity extends Activity {
             }
             return output.toByteArray();
         }
-    }
-
-    private boolean containsNullByte(byte[] bytes) {
-        int limit = Math.min(bytes.length, 8192);
-        for (int index = 0; index < limit; index++) {
-            if (bytes[index] == 0) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private String decodeText(byte[] bytes) {

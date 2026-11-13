@@ -151,18 +151,22 @@
 
     function notifyError(message) {
         if (typeof saveErrorHandler === 'function') {
-            saveErrorHandler(message);
+            try {
+                saveErrorHandler(message);
+            } catch (error) {
+                // A UI error reporter must not change the transaction result.
+            }
         }
         document.dispatchEvent(new CustomEvent('notedown:storage-error', {detail: {message}}));
     }
 
-    function persist() {
-        if (!state) {
+    function persist(candidate) {
+        if (!candidate) {
             return false;
         }
         let json;
         try {
-            json = JSON.stringify(state);
+            json = JSON.stringify(candidate);
         } catch (error) {
             notifyError('笔记数据无法序列化');
             return false;
@@ -171,17 +175,15 @@
         if (nativeBridge) {
             try {
                 const saved = nativeBridge.saveData(json);
-                if (saved) {
+                if (saved === true) {
                     return true;
                 }
             } catch (error) {
-                // Fall through to the browser backup.
+                // Native storage remains authoritative for this session.
             }
-            if (writeLocal(json)) {
-                notifyError('系统存储写入失败，已暂存到浏览器备份');
-            } else {
-                notifyError('保存失败，请检查设备存储空间');
-            }
+            // A browser fallback here would be older than native data on the
+            // next launch, falsely suggesting that an edit had been saved.
+            notifyError('保存失败，请检查设备存储空间后重试；当前编辑内容仍保留');
             return false;
         }
 
@@ -190,6 +192,14 @@
         }
         notifyError('保存失败，请检查设备存储空间');
         return false;
+    }
+
+    function commit(candidate) {
+        if (!persist(candidate)) {
+            return false;
+        }
+        state = candidate;
+        return true;
     }
 
     function makeId() {
@@ -209,7 +219,7 @@
     }
 
     function getNotes() {
-        return state.notes.slice();
+        return state.notes.map((note) => Object.assign({}, note));
     }
 
     function getNote(id) {
@@ -224,10 +234,9 @@
     function setTheme(mode) {
         const safe = THEME_MODES.has(mode) ? mode : 'auto';
         if (state.prefs.theme === safe) {
-            return;
+            return true;
         }
-        state.prefs.theme = safe;
-        persist();
+        return commit(Object.assign({}, state, {prefs: {theme: safe}}));
     }
 
     function seedIfNeeded(builder) {
@@ -250,10 +259,11 @@
             createdAt: Date.now(),
             updatedAt: Date.now()
         };
-        state.notes.push(note);
-        state.seeded = true;
-        persist();
-        return Object.assign({}, note);
+        const candidate = Object.assign({}, state, {
+            notes: state.notes.concat(note),
+            seeded: true
+        });
+        return commit(candidate) ? Object.assign({}, note) : null;
     }
 
     function createNote(input) {
@@ -265,17 +275,19 @@
             createdAt: now,
             updatedAt: now
         };
-        state.notes.push(note);
-        state.seeded = true;
-        persist();
-        return Object.assign({}, note);
+        const candidate = Object.assign({}, state, {
+            notes: state.notes.concat(note),
+            seeded: true
+        });
+        return commit(candidate) ? Object.assign({}, note) : null;
     }
 
     function updateNote(id, patch) {
-        const note = findNote(id);
-        if (!note) {
+        const previous = findNote(id);
+        if (!previous) {
             return null;
         }
+        const note = Object.assign({}, previous);
         if (patch && typeof patch.title === 'string') {
             note.title = cleanTitle(patch.title);
         }
@@ -283,8 +295,10 @@
             note.html = patch.html;
         }
         note.updatedAt = Date.now();
-        persist();
-        return Object.assign({}, note);
+        const candidate = Object.assign({}, state, {
+            notes: state.notes.map((item) => item.id === id ? note : item)
+        });
+        return commit(candidate) ? Object.assign({}, note) : null;
     }
 
     function updateContent(id, html) {
@@ -300,9 +314,9 @@
         if (index < 0) {
             return false;
         }
-        state.notes.splice(index, 1);
-        persist();
-        return true;
+        return commit(Object.assign({}, state, {
+            notes: state.notes.filter((note) => note.id !== id)
+        }));
     }
 
     function setSaveErrorHandler(handler) {

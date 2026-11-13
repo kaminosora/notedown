@@ -31,5 +31,15 @@ do not make network requests.
 - File: `app/src/main/assets/www/js/vendor/turndown-plugin-gfm.js`
 - License text: `app/src/main/assets/www/js/vendor/LICENSE.turndown-plugin-gfm.txt`
 
+## ProseMirror and supporting modules
+
+- Project: https://prosemirror.net/ (MIT)
+- Bundle: `app/src/main/assets/www/js/rich-editor.js`
+- Editable source: `src/rich-editor.js`
+- Exact dependency versions: `package-lock.json`
+- Full licenses, including bundled supporting modules: `app/src/main/assets/www/js/vendor/LICENSE.prosemirror.txt`
+- Rebuild with `npm ci && npm run build:editor`. The bundle and licenses are
+  checked in so Android builds and installed applications work without npm or a CDN.
+
 All other code, artwork and copy in this repository are original work and are
 released under the MIT license in `LICENSE`.

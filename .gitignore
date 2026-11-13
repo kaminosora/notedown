@@ -6,6 +6,8 @@ local.properties
 captures/
 *.apk
 *.aab
+*.keystore
+*.jks
 *.iml
 .idea/
 

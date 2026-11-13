@@ -1,0 +1,9 @@
+// Builds an isolated package so runtime checks never alter existing notes.
+gradle.beforeProject { project ->
+    if (project.name == 'app') {
+        project.layout.buildDirectory.set(new File(project.rootDir, '.tmp/qa-build'))
+        project.afterEvaluate {
+            project.android.defaultConfig.applicationId = 'io.github.kaminosora.notedown.qa'
+        }
+    }
+}
