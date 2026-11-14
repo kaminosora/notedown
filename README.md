@@ -22,6 +22,9 @@
   - **HTML**：直接编辑安全 HTML。
 - **勾选与划去**：任务列表勾选后自动划线；单独的划线模式可点按任意段落或列表项切换划去。
 - **阅读态长按排序**：有序、无序列表都可以长按拖动，松手即保存。序号会随 DOM 顺序自动重排；编辑态通过块操作栏调整顺序。
+- **表格拖动**：富文本中长按表格左侧行柄或上侧列柄重新排序；长按单元格，与落点交换内容。松手才应用，可一次撤销。
+- **离线公式**：支持常见 LaTeX 行内与独立公式。编辑器右上角 ƒx 开关展开公式工具，附模板、源码编辑和即时预览；字体和排版引擎随 APK 打包。
+- **应用内显示比例**：在 60%–150% 间以 5% 调整整个界面，缩小后可显示更多内容；支持即时预览、保存、取消复原和恢复默认，只影响 Notedown。
 - **丝滑拖拽**：拖拽幽灵跟随手指，其他条目使用 FLIP 位移动画；松手后回弹归位。
 - **边缘自动滚动**：拖到屏幕上下边缘附近自动滚动。越靠近边缘越快，速度随距离连续变化，并显示边缘渐变提示。
 - **本地优先**：笔记写入应用私有目录，无账号、无遥测；断网也能用。
@@ -39,6 +42,7 @@
 | Android 容器 | Java 17，单个 `Activity` + `WebView`，无第三方 Android 依赖，无 AndroidX |
 | 界面 | 原生 HTML / CSS / JavaScript；编辑内核通过 esbuild 离线打包，产物随仓库提供 |
 | 富文本编辑 | ProseMirror 文档模型、事务、撤销和结构化命令；本地离线打包 |
+| 数学公式 | KaTeX，源码和展示分离，字体及排版引擎离线打包 |
 | Markdown 解析 | [marked](https://github.com/markedjs/marked) 12（本地内置，MIT） |
 | HTML → Markdown | [Turndown](https://github.com/mixmark-io/turndown) 7 + 自定义 GFM 与内容保真规则（本地内置，MIT） |
 | HTML 净化 | [DOMPurify](https://github.com/cure53/DOMPurify) 3.4（本地内置，Apache-2.0 / MPL-2.0） |
@@ -110,6 +114,31 @@ npm run test:e2e
 
 ## 编辑模式说明
 
+### 显示比例
+
+书架右上角的 **Aa** 按钮、笔记页 `⋯` 菜单中的“显示比例”，以及富文本第二条工具栏的“比例”按钮，都可以打开比例设置。
+
+可用滑杆、加减按钮或预设在 **60%–150%** 间调整，步长为 **5%**。先预览再点“保存”记住比例；点“取消”或系统返回会恢复进入设置前的已保存比例。“恢复默认”预览 100%，仍需点“保存”才保留；保存失败也会恢复原比例，方便重试。
+
+如果手机系统字体较大，希望一屏显示更多内容，可以先试 **80%**，仍觉得拥挤再试 **65%**，然后按阅读和点击习惯微调。比例只影响本应用，不修改手机系统字体、其他应用或笔记内容。桌面浏览器不应用这里的移动视口缩放，请使用浏览器菜单中的缩放设置。
+
+### 表格移动与数学公式
+
+富文本表格左侧是整行手柄，上侧是整列手柄：按住约半秒后拖动，落点会高亮；靠近编辑区上下边缘可滚动。普通单元格也能长按拖动，松手后与目标格**交换内容**，两格原有内容都会保留；没有覆盖模式。行列重排保持其他项相对顺序，表头位置的语义不变。拖到表格外或按 Escape 取消，完成后可以撤销。表格包含合并单元格时允许单元格内容交换，整行整列移动会提示不可用，以免破坏跨行跨列结构。文字选区和“光标／选区”手柄优先于单元格拖动。
+
+右上角 **ƒx** 开关可显示或隐藏第三条公式工具栏，并记住选择。点“行内公式”“独立公式”或模板，输入 LaTeX 源码并查看预览；选中公式后点“编辑公式”，也可双击或按 Enter 打开。源码输入框不需要外围定界符。错误公式保留源码，可继续修正。
+
+Markdown 和 HTML 源码均支持 `$x^2$`、`$$\frac{a}{b}$$`、`\(x^2\)`、`\[x^2\]`；代码块和行内代码里的符号不按公式解析。HTML 也可直接修改保存格式：
+
+```html
+<p>行内：<span data-math="inline" data-latex="x^2">x^2</span></p>
+<div data-math="block" data-latex="\frac{a}{b}">\frac{a}{b}</div>
+```
+
+笔记存储 LaTeX 源码，不存 KaTeX 生成的展示节点。可在富文本、Markdown、HTML 间往返。公式引擎支持常用数学排版，非完整 TeX 文档系统；不允许公式执行 HTML、脚本或载入外部资源。
+
+### 常规编辑
+
 <p align="center">
   <img src="docs/screenshots/editor-rich-mobile.png" width="45%" alt="富文本直接编辑">
   <img src="docs/screenshots/editor-markdown-mobile.png" width="45%" alt="Markdown 源码编辑">
@@ -164,6 +193,9 @@ app/src/main/
 │       ├── drag.js              # 长按拖拽、FLIP、边缘自动滚动
 │       ├── rich-editor.js       # 从 src/rich-editor.js 离线构建的编辑内核
 │       ├── editor-mobile.js     # 键盘视口、光标避让、边缘滚动与选区保护
+│       ├── display.js           # 应用内显示比例与设置弹窗
+│       ├── math.js              # LaTeX 解析与离线 KaTeX 排版
+│       ├── editor-math-ui.js    # 公式工具栏、源码输入与预览
 │       ├── app.js               # 界面、编辑模式与格式工具栏
 │       └── vendor/              # marked + DOMPurify + Turndown（含许可证）
 └── res/                         # 主题、图标
@@ -173,18 +205,23 @@ tests/e2e.mjs                   # 原有浏览器端到端测试
 tests/editor.mjs                # 富文本、移动端与选区回归
 tests/store.mjs                 # 存储失败注入
 tests/storage-ui.mjs            # 保存失败后的界面与重试回归
+tests/display.mjs               # 移动视口缩放、比例保存与缩放后的编辑交互
 tests/android.mjs               # MuMu Android 15 原生触摸与键盘验收（独立 QA 包）
 ```
 
 ### 笔记数据约定
 
-界面内部使用安全的语义 HTML 保存，额外属性只有四个：
+界面内部使用安全的语义 HTML 保存，额外数据属性记录任务、划去、来源与公式：
 
 ```html
 <li data-task="true" data-checked="true">任务</li>
 <p data-struck="true">手动划去的段落</p>
 <div data-file="source.md"></div>
+<span data-math="inline" data-latex="x^2">x^2</span>
+<div data-math="block" data-latex="\frac{a}{b}">\frac{a}{b}</div>
 ```
+
+`data-math` 为 `inline` 或 `block`，分别使用 `span` 和 `div`；`data-latex` 保存可继续编辑的 LaTeX 源码，节点文本是其备用显示。KaTeX 生成的排版节点不写入笔记。
 
 阅读控件由 `enhanceContent()` 重建，富文本控件由编辑模型的节点视图创建；保存时仅序列化文档内容，因此存储内容不依赖某个 UI 版本。代码语言另外保留安全的 `language-*` 类名。
 

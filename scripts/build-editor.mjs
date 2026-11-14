@@ -1,5 +1,5 @@
 import {build} from 'esbuild';
-import {readFile, writeFile} from 'node:fs/promises';
+import {readFile, writeFile, mkdir, readdir, copyFile} from 'node:fs/promises';
 
 const result = await build({
     entryPoints: ['src/rich-editor.js'],
@@ -26,3 +26,13 @@ const notices = await Promise.all(packages.map(async name => {
     return `${name} ${pkg.version}\n${'='.repeat(72)}\n${license.trim()}\n`;
 }));
 await writeFile('app/src/main/assets/www/js/vendor/LICENSE.prosemirror.txt', notices.join('\n'), 'utf8');
+
+await build({entryPoints: ['src/math.js'], outfile: 'app/src/main/assets/www/js/math.js',
+    bundle: true, format: 'iife', target: 'chrome80', minify: true, legalComments: 'eof'});
+const mathCss = 'app/src/main/assets/www/css/vendor/katex';
+await mkdir(`${mathCss}/fonts`, {recursive: true});
+await copyFile('node_modules/katex/dist/katex.min.css', `${mathCss}/katex.min.css`);
+for (const name of await readdir('node_modules/katex/dist/fonts')) {
+    await copyFile(`node_modules/katex/dist/fonts/${name}`, `${mathCss}/fonts/${name}`);
+}
+await copyFile('node_modules/katex/LICENSE', 'app/src/main/assets/www/js/vendor/LICENSE.katex.txt');

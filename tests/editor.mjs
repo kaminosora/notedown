@@ -719,6 +719,10 @@ try {
         await page.locator('[data-editor-mode="rich"]').click();
         assert.equal(await page.locator('.editor-selection-handles').isHidden(), true);
         await page.locator('#editor-cancel').click();
+        await page.locator('#confirm-dialog:not([hidden])').waitFor();
+        assert.match(await page.locator('#confirm-title').innerText(), /放弃未保存的修改/);
+        await page.locator('#confirm-ok').click();
+        await page.locator('#editor-overlay').waitFor({state: 'hidden'});
         await page.locator('#new-note-fab').click();
         await settle(page);
         assert.equal(await page.locator('.editor-selection-handles').isHidden(), true);

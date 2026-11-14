@@ -7,6 +7,7 @@
     <meta name="color-scheme" content="light dark">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <title>Notedown</title>
+    <script src="js/display.js"></script>
     <script>
         (function () {
             try {
@@ -21,6 +22,7 @@
                 if (raw) {
                     var parsed = JSON.parse(raw);
                     mode = parsed && parsed.prefs && parsed.prefs.theme ? parsed.prefs.theme : 'auto';
+                    window.NoteDisplay.apply(parsed && parsed.prefs ? parsed.prefs.displayScale : 100);
                 }
                 var dark = mode === 'dark' || (mode === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
                 document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -30,7 +32,12 @@
             }
         })();
     </script>
+    <link rel="stylesheet" href="css/vendor/katex/katex.min.css">
     <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/math-content.css">
+    <link rel="stylesheet" href="css/table-drag.css">
+    <link rel="stylesheet" href="css/editor-math.css">
+    <link rel="stylesheet" href="css/display.css">
 </head>
 <body>
 <div class="app-shell">
@@ -49,6 +56,7 @@
                 </span>
             </button>
             <div class="header-actions">
+                <button id="display-settings" class="icon-button" type="button" aria-label="显示比例" title="显示比例">Aa</button>
                 <button id="theme-toggle" class="icon-button theme-button" type="button" aria-label="切换外观">
                     <span class="theme-icon" data-theme-icon="auto" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none">
@@ -292,7 +300,10 @@
                 <p class="kicker" id="editor-mode-label">Compose</p>
                 <h2 id="editor-title-label">新建笔记</h2>
             </div>
-            <button id="editor-save" class="button button-primary editor-save" type="submit">保存</button>
+            <div class="editor-topbar-actions">
+                <button id="editor-math-toggle" class="text-button math-toggle" type="button" role="switch" aria-checked="false" aria-controls="math-toolbar" title="显示或隐藏公式工具栏">ƒx<span>公式</span></button>
+                <button id="editor-save" class="button button-primary editor-save" type="submit">保存</button>
+            </div>
         </header>
         <div class="editor-scroll">
             <label class="editor-title-field" for="editor-title">
@@ -340,12 +351,14 @@
 <script src="js/vendor/purify.min.js"></script>
 <script src="js/vendor/turndown.js"></script>
 <script src="js/vendor/turndown-plugin-gfm.js"></script>
+<script src="js/math.js"></script>
 <script src="js/parser.js"></script>
 <script src="js/export.js"></script>
 <script src="js/store.js"></script>
 <script src="js/drag.js"></script>
 <script src="js/rich-editor.js"></script>
 <script src="js/editor-mobile.js"></script>
+<script src="js/editor-math-ui.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

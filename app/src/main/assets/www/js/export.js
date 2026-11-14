@@ -37,7 +37,7 @@
 
     function isSimpleTable(table) {
         const rows = Array.from(table.rows);
-        if (!rows.length || table.querySelector('caption, tfoot, table')) {
+        if (!rows.length || table.querySelector('caption, tfoot, table, [data-math]')) {
             return false;
         }
         const width = rows[0].cells.length;
@@ -149,6 +149,18 @@
                 return `\n\n<div data-file="${name}"></div>\n\n`;
             }
         });
+        service.addRule('notedownMath', {
+            filter: node => node.hasAttribute('data-math') && node.hasAttribute('data-latex'),
+            replacement(content, node) {
+                const source = node.getAttribute('data-latex');
+                const display = node.getAttribute('data-math') === 'block';
+                const expression = global.NoteMath && global.NoteMath.toMarkdown(source, display);
+                if (expression) return display ? `\n\n${expression}\n\n` : expression;
+                const retained = node.cloneNode(false);
+                retained.textContent = source;
+                return display ? rawBlock(retained) : retained.outerHTML.replace(/\r/g, '&#13;').replace(/\n/g, '&#10;');
+            }
+        });
         return service;
     }
 
@@ -160,6 +172,9 @@
         // Turndown's blank-node handling precedes custom rules.
         for (const label of fragment.querySelectorAll('div[data-file]')) {
             label.textContent = '\u2063';
+        }
+        for (const math of fragment.querySelectorAll('[data-math][data-latex]')) {
+            math.textContent = '\u2063';
         }
 
         // Simple struck text remains familiar Markdown. Complex structures

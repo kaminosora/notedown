@@ -1809,6 +1809,10 @@ body.is-dragging * {
 
 /* ---------- Editor ---------- */
 
+/* Confirmation can be opened above an editor with unsaved changes. */
+#confirm-backdrop { z-index: 130; }
+#confirm-dialog { z-index: 131; }
+
 .editor-overlay {
     position: fixed;
     inset: 0 0 auto;

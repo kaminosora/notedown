@@ -10,6 +10,7 @@
         let lastSelection = null;
         let selectionMode = '';
         let restoring = false;
+        let tableDragging = false;
         const handles = document.createElement('div');
         handles.className = 'editor-selection-handles';
         handles.hidden = true;
@@ -56,7 +57,7 @@
         function reveal() {
             cancelAnimationFrame(revealFrame);
             revealFrame = requestAnimationFrame(() => {
-                if (overlay.hidden || drag) return;
+                if (overlay.hidden || drag || tableDragging) return;
                 let rect = null;
                 if (active() && (document.activeElement === rich || rich.contains(document.activeElement))) {
                     const view = getEditor().view;
@@ -117,7 +118,7 @@
         }
 
         function guardSelection() {
-            if (!active() || restoring) return;
+            if (!active() || restoring || tableDragging) return;
             const selection = global.getSelection();
             if (validDOMSelection(selection)) {
                 remember();
@@ -153,7 +154,7 @@
         }
 
         function drawHandles() {
-            handles.hidden = !selectionMode || !active();
+            handles.hidden = !selectionMode || !active() || tableDragging;
             if (handles.hidden) return;
             const area = bounds();
             const view = getEditor().view;
@@ -250,7 +251,7 @@
         }
 
         rich.addEventListener('pointerdown', event => {
-            if (event.pointerType !== 'mouse' || event.button !== 0 || !active()) return;
+            if (event.pointerType !== 'mouse' || event.button !== 0 || !active() || tableDragging) return;
             if (event.target.closest('input, button, img, [contenteditable="false"]')) return;
             const hit = getEditor().view.posAtCoords({left: event.clientX, top: event.clientY});
             if (!hit) return;
@@ -268,6 +269,11 @@
             }
         });
         rich.addEventListener('dragstart', stopDrag);
+        rich.addEventListener('notedown-table-drag', event => {
+            tableDragging = Boolean(event.detail?.active);
+            stopDrag();
+            if (!tableDragging) selectionChanged();
+        });
         document.addEventListener('pointerup', stopDrag);
         document.addEventListener('pointercancel', stopDrag);
         document.addEventListener('selectionchange', guardSelection);

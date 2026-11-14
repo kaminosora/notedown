@@ -11,6 +11,7 @@ import {inputRules, wrappingInputRule, textblockTypeInputRule, InputRule, undoIn
 import {gapCursor} from 'prosemirror-gapcursor';
 import {dropCursor} from 'prosemirror-dropcursor';
 import {tableNodes, tableEditing, addRowAfter, deleteRow, addColumnAfter, deleteColumn, deleteTable, goToNextCell} from 'prosemirror-tables';
+import {createTableDragPlugin} from './table-drag.js';
 
 const Parser = window.NoteParser;
 const struckAttrs = {struck: {default: false}};
@@ -106,6 +107,15 @@ function makeSchema() {
         toDOM: (node) => ['tr', {'data-pm-section': node.attrs.section}, 0]
     };
     nodes = nodes.append(tables);
+    for (const [name, tag, display] of [['math_inline', 'span', false], ['math_block', 'div', true]]) {
+        nodes = nodes.append({[name]: {
+            group: display ? 'block' : 'inline', inline: !display, atom: true, draggable: true,
+            attrs: {latex: {default: ''}},
+            parseDOM: [{tag: `${tag}[data-math="${display ? 'block' : 'inline'}"][data-latex]`, priority: 80,
+                getAttrs: element => ({latex: element.getAttribute('data-latex')})}],
+            toDOM: node => [tag, {'data-math': display ? 'block' : 'inline', 'data-latex': node.attrs.latex}, node.attrs.latex]
+        }});
+    }
     let marks = basicSchema.spec.marks;
     marks = marks.update('code', {...marks.get('code'), excludes: '_'});
     for (const [name, tags] of [['strike', ['del', 's', 'strike']], ['underline', ['u']], ['highlight', ['mark']], ['small', ['small']], ['subscript', ['sub']], ['superscript', ['sup']], ['keyboard', ['kbd']]]) {
@@ -451,20 +461,23 @@ function linkExtent(state) {
     return {from, to};
 }
 
-function create({element, html = '', onChange = () => {}, onSelectionChange = () => {}, onReveal = () => {}}) {
+function create({element, html = '', onChange = () => {}, onSelectionChange = () => {}, onReveal = () => {}, onEditMath = () => {}}) {
     let destroyed = false;
     const shortcuts = {
         'Mod-z': undo, 'Shift-Mod-z': redo, 'Mod-y': redo,
         'Mod-b': toggleMark(schema.marks.strong), 'Mod-i': toggleMark(schema.marks.em),
         'Mod-`': toggleMark(schema.marks.code), 'Mod-a': selectAll,
         'Mod-Enter': exitCode,
-        Enter: chainCommands(endCodeOnBlankLine, enterList, baseKeymap.Enter),
+        Enter: chainCommands((state) => {
+            if (!(state.selection instanceof NodeSelection) || !isMath(state.selection.node)) return false;
+            onEditMath(); return true;
+        }, endCodeOnBlankLine, enterList, baseKeymap.Enter),
         Backspace: chainCommands(undoInputRule, baseKeymap.Backspace),
         Tab: chainCommands(nextTableCell, sinkListItem(schema.nodes.list_item), (state, dispatch) => { if (dispatch) dispatch(state.tr.insertText('    ').scrollIntoView()); return true; }),
         'Shift-Tab': chainCommands(goToNextCell(-1), liftListItem(schema.nodes.list_item)),
         'Alt-ArrowUp': manipulateBlock('block-up'), 'Alt-ArrowDown': manipulateBlock('block-down')
     };
-    const plugins = [buildInputRules(), history(), keymap(shortcuts), keymap(baseKeymap), gapCursor(), dropCursor(), tableEditing()];
+    const plugins = [buildInputRules(), history(), keymap(shortcuts), keymap(baseKeymap), gapCursor(), dropCursor(), createTableDragPlugin(), tableEditing()];
     let state = EditorState.create({doc: readDocument(html), plugins});
     const view = new EditorView({mount: element}, {
         state,
@@ -472,6 +485,8 @@ function create({element, html = '', onChange = () => {}, onSelectionChange = ()
         transformPastedHTML: (source) => Parser.htmlToHtml(source),
         handleScrollToSelection() { onReveal(); return true; },
         nodeViews: {
+            math_inline: makeMathView,
+            math_block: makeMathView,
             list_item: makeListItemView,
             table(node) {
                 const rendered = schema.nodes.table.spec.toDOM(node);
@@ -517,6 +532,40 @@ function create({element, html = '', onChange = () => {}, onSelectionChange = ()
             if (!previous.selection.eq(result.state.selection) || transaction.storedMarksSet || transaction.docChanged) onSelectionChange();
         }
     });
+    function makeMathView(node, editor, getPos) {
+        let current = node;
+        const dom = document.createElement(node.type === schema.nodes.math_block ? 'div' : 'span');
+        dom.contentEditable = 'false';
+        function update(next) {
+            if (next.type !== node.type) return false;
+            current = next;
+            dom.setAttribute('data-math', current.type === schema.nodes.math_block ? 'block' : 'inline');
+            dom.setAttribute('data-latex', current.attrs.latex);
+            if (window.NoteMath) window.NoteMath.renderFormula(dom, current.attrs.latex, current.type === schema.nodes.math_block);
+            else dom.textContent = current.attrs.latex;
+            return true;
+        }
+        update(node);
+        dom.addEventListener('click', event => {
+            if (event.defaultPrevented) return;
+            const pos = getPos();
+            if (typeof pos === 'number') {
+                event.preventDefault();
+                editor.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)));
+                editor.focus();
+            }
+        });
+        dom.addEventListener('dblclick', event => {
+            event.preventDefault();
+            const pos = getPos();
+            if (typeof pos === 'number') {
+                editor.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)));
+                onEditMath();
+            }
+        });
+        return {dom, update, ignoreMutation: () => true};
+    }
+    function isMath(node) { return node && (node.type === schema.nodes.math_inline || node.type === schema.nodes.math_block); }
     function reveal() { if (!destroyed) onReveal(); }
     const api = {
         view,
@@ -589,6 +638,31 @@ function create({element, html = '', onChange = () => {}, onSelectionChange = ()
             view.dispatch(scroll ? tr.scrollIntoView() : tr);
         },
         getLink() { return currentLink(view.state)?.attrs.href || ''; },
+        getMath() {
+            const selection = view.state.selection;
+            if (!(selection instanceof NodeSelection) || !isMath(selection.node)) return null;
+            return {latex: selection.node.attrs.latex, display: selection.node.type === schema.nodes.math_block, pos: selection.from};
+        },
+        setMath({latex = '', display = false} = {}) {
+            const source = String(latex);
+            if (source.length > (window.NoteMath?.MAX_SOURCE_LENGTH || 10000)) return false;
+            const selection = view.state.selection;
+            const selectedMath = selection instanceof NodeSelection && isMath(selection.node);
+            if (!source.trim() && !selectedMath) return false;
+            let tr = closeHistory(view.state.tr);
+            if (!source.trim()) tr.deleteSelection();
+            else {
+                const type = display ? schema.nodes.math_block : schema.nodes.math_inline;
+                const node = type.create({latex: source});
+                if (selectedMath && selection.node.type === type) {
+                    tr.setNodeMarkup(selection.from, type, node.attrs);
+                } else tr.replaceSelectionWith(node);
+            }
+            view.dispatch(tr.scrollIntoView());
+            onSelectionChange();
+            reveal();
+            return true;
+        },
         setLink(url) {
             const href = String(url || '').trim();
             if (href && !/^(https?:\/\/|mailto:|tel:|#)/i.test(href)) return false;

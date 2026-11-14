@@ -1,0 +1,8 @@
+.nt-math { max-width: 100%; color: inherit; }
+.nt-math[data-math="inline"] { display: inline-block; vertical-align: middle; overflow-x: auto; overflow-y: hidden; }
+.nt-math-block { display: block; margin: .8em 0; padding: .3em 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
+.nt-math .katex-display { margin: .35em 0; }
+.nt-math-error { font-family: var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--accent); border-bottom: 1px dashed currentColor; }
+#editor-rich .nt-math { cursor: pointer; user-select: none; -webkit-user-select: none; border-radius: 5px; }
+#editor-rich .nt-math.ProseMirror-selectednode { outline: 2px solid var(--accent); outline-offset: 3px; background: var(--accent-soft); }
+#editor-rich .nt-math-block { min-height: 44px; }

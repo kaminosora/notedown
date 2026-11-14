@@ -114,7 +114,79 @@ for (const native of [false, true]) {
         assert.equal(store.setTheme('dark'), true);
         assert.equal(JSON.parse(disk.json).prefs.theme, 'dark');
     });
+
+    test(`${mode}: display scale persists only after a successful save and survives reload`, () => {
+        const {store, disk} = harness({native, fail: true});
+        assert.equal(store.getPrefs().displayScale, 100);
+        assert.equal(store.setDisplayScale(80), false);
+        assert.equal(store.getPrefs().displayScale, 100);
+        assert.deepEqual(JSON.parse(disk.json), initial);
+        disk.fail = false;
+        assert.equal(store.setDisplayScale('80'), true);
+        assert.equal(store.getPrefs().displayScale, 80);
+        assert.equal(JSON.parse(disk.json).prefs.displayScale, 80);
+        store.getPrefs().displayScale = 150;
+        assert.equal(store.getPrefs().displayScale, 80, 'Preference getters cannot mutate stored state');
+        store.init();
+        assert.equal(store.getPrefs().displayScale, 80);
+    });
+
+    test(`${mode}: theme and display scale changes never overwrite each other`, () => {
+        const {store, disk} = harness({native});
+        assert.equal(store.setDisplayScale(125), true);
+        assert.equal(store.setTheme('dark'), true);
+        assert.deepEqual(copy(store.getPrefs()), {theme: 'dark', displayScale: 125});
+        assert.equal(store.setDisplayScale(85), true);
+        assert.deepEqual(JSON.parse(disk.json).prefs, {theme: 'dark', displayScale: 85});
+        disk.fail = true;
+        assert.equal(store.setTheme('light'), false);
+        assert.equal(store.setDisplayScale(60), false);
+        assert.deepEqual(copy(store.getPrefs()), {theme: 'dark', displayScale: 85});
+        assert.deepEqual(JSON.parse(disk.json).prefs, {theme: 'dark', displayScale: 85});
+    });
 }
+
+test('display scale defaults safely for old documents and malformed preferences', () => {
+    for (const value of [undefined, null, '', ' ', '125%', 'invalid', true, false, {}, [], [80]]) {
+        const data = {...initial, prefs: {theme: 'light', displayScale: value}};
+        const {store} = harness({data});
+        assert.deepEqual(copy(store.getPrefs()), {theme: 'light', displayScale: 100});
+    }
+    for (const data of [null, ...[null, undefined, 0, false, [], 'invalid'].map(prefs => ({...initial, prefs}))]) {
+        assert.equal(harness({data}).store.getPrefs().displayScale, 100);
+    }
+});
+
+test('display scale clamps finite values and rounds to five-point steps on load and update', () => {
+    for (const [value, expected] of [[0, 60], [-500, 60], [60, 60], [62.4, 60], [62.5, 65],
+        ['82', 80], [' 125 ', 125], [148, 150], [500, 150]]) {
+        const {store, disk} = harness({data: {...initial, prefs: {theme: 'auto', displayScale: value}}});
+        assert.equal(store.getPrefs().displayScale, expected);
+        assert.equal(store.setDisplayScale(expected === 100 ? 80 : 100), true);
+        assert.equal(store.setDisplayScale(value), true);
+        assert.equal(JSON.parse(disk.json).prefs.displayScale, expected);
+    }
+    const {store} = harness();
+    for (const invalid of [NaN, Infinity, -Infinity, undefined, null, false, {}, 'not a number', '']) {
+        assert.equal(store.setDisplayScale(80), true);
+        assert.equal(store.setDisplayScale(invalid), true);
+        assert.equal(store.getPrefs().displayScale, 100);
+    }
+});
+
+test('native: display scale changes cannot bypass the unreadable-document write lock', () => {
+    const broken = '{"notes":';
+    const {store, disk} = harness({native: true, raw: broken});
+    assert.equal(store.setDisplayScale(80), false);
+    assert.equal(store.getPrefs().displayScale, 100);
+    assert.equal(disk.nativeWrites, 0);
+    assert.equal(disk.json, broken);
+    assert.ok(store.getLoadError());
+    assert.equal(store.restore({...initial, prefs: {theme: 'dark', displayScale: 85}}), true);
+    assert.deepEqual(copy(store.getPrefs()), {theme: 'dark', displayScale: 85});
+    assert.equal(store.setDisplayScale(75), true);
+    assert.deepEqual(JSON.parse(disk.json).prefs, {theme: 'dark', displayScale: 75});
+});
 
 test('native: failure never writes an uncommitted browser backup or reports success', () => {
     const {store, disk, errors} = harness({native: true, throws: true});

@@ -36,7 +36,7 @@
         return {
             version: SCHEMA_VERSION,
             seeded: false,
-            prefs: {theme: 'auto'},
+            prefs: {theme: 'auto', displayScale: 100},
             notes: []
         };
     }
@@ -49,6 +49,19 @@
     function cleanDate(value, fallback) {
         const number = Number(value);
         return Number.isFinite(number) && number > 0 ? number : fallback;
+    }
+
+    function normaliseDisplayScale(value) {
+        // Range controls provide strings, but null, booleans and objects are
+        // not meaningful scale preferences. Old documents default to 100%.
+        if (!['number', 'string'].includes(typeof value) || (typeof value === 'string' && !value.trim())) {
+            return 100;
+        }
+        const scale = Number(value);
+        if (!Number.isFinite(scale)) {
+            return 100;
+        }
+        return Math.round(Math.max(60, Math.min(150, scale)) / 5) * 5;
     }
 
     function normaliseNote(raw) {
@@ -86,7 +99,7 @@
         return {
             version: SCHEMA_VERSION,
             seeded: raw.seeded === true || notes.length > 0,
-            prefs: {theme},
+            prefs: {theme, displayScale: normaliseDisplayScale(raw.prefs?.displayScale)},
             notes
         };
     }
@@ -299,7 +312,15 @@
         if (state.prefs.theme === safe) {
             return true;
         }
-        return commit(Object.assign({}, state, {prefs: {theme: safe}}));
+        return commit(Object.assign({}, state, {prefs: Object.assign({}, state.prefs, {theme: safe})}));
+    }
+
+    function setDisplayScale(value) {
+        const safe = normaliseDisplayScale(value);
+        if (state.prefs.displayScale === safe) {
+            return true;
+        }
+        return commit(Object.assign({}, state, {prefs: Object.assign({}, state.prefs, {displayScale: safe})}));
     }
 
     function seedIfNeeded(builder) {
@@ -393,6 +414,7 @@
         getNote,
         getPrefs,
         setTheme,
+        setDisplayScale,
         seedIfNeeded,
         createNote,
         updateNote,

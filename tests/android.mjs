@@ -13,7 +13,7 @@ const adbPath = process.env.ADB_PATH;
 assert.ok(adbPath, 'Set ADB_PATH to the emulator/device adb executable');
 const serial = process.env.ANDROID_SERIAL || '127.0.0.1:16384';
 const pkg = 'io.github.kaminosora.notedown.qa';
-const output = path.resolve('.test-artifacts/android15');
+const output = path.resolve(process.env.ANDROID_TEST_OUTPUT || '.test-artifacts/android15');
 fs.mkdirSync(output, {recursive: true});
 const adb = (...args) => execFileSync(adbPath, ['-s', serial, ...args], {maxBuffer: 12 * 1024 * 1024});
 const shell = (...args) => adb('shell', ...args).toString().trim();
@@ -69,8 +69,17 @@ async function tool(action) {
     await page.locator(`[data-rich-action="${action}"]`).click();
     await pause();
 }
+async function discardFixture() {
+    if (!await page.locator('#editor-overlay').isVisible()) return;
+    await page.locator('#editor-cancel').click();
+    if (await page.locator('#confirm-dialog').isVisible()) {
+        assert.match(await page.locator('#confirm-title').innerText(), /放弃未保存的修改/);
+        await page.locator('#confirm-ok').click();
+    }
+    await page.locator('#editor-overlay').waitFor({state: 'hidden'});
+}
 async function fixture(html) {
-    if (await page.locator('#editor-overlay').isVisible()) await page.locator('#editor-cancel').click();
+    await discardFixture();
     if (await page.locator('#note-screen').isVisible()) await page.locator('#back-button').click();
     await page.locator('#new-note-fab').click();
     await page.locator('[data-editor-mode="html"]').click();
@@ -146,7 +155,7 @@ try {
         const create = NoteRichEditor.create;
         NoteRichEditor.create = (...args) => window.__editor = create(...args);
     });
-    if (await page.locator('#editor-overlay').isVisible()) await page.locator('#editor-cancel').click();
+    await discardFixture();
     await pause(500);
     baseHeight = await page.evaluate(() => innerHeight);
     await refreshWebOrigin();

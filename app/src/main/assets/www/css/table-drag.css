@@ -1,0 +1,67 @@
+.table-drag-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 105;
+    pointer-events: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.table-drag-handle {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    color: var(--muted);
+    background: transparent;
+    pointer-events: auto;
+    touch-action: none;
+    cursor: grab;
+}
+.table-drag-handle::after {
+    content: '';
+    width: 5px;
+    height: 16px;
+    border-radius: 4px;
+    background: currentColor;
+    opacity: .45;
+}
+.table-drag-column::after { width: 16px; height: 5px; }
+.table-drag-handle:hover, .table-drag-handle:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
+.table-drag-source, .table-drag-target {
+    position: fixed;
+    pointer-events: none;
+    box-sizing: border-box;
+    border: 2px solid var(--accent);
+    border-radius: 3px;
+    background: rgba(var(--drag-edge-rgb), .12);
+}
+.table-drag-source { border-style: dashed; opacity: .6; }
+.table-drag-target { box-shadow: 0 0 0 2px var(--surface); }
+.table-drag-status {
+    position: fixed;
+    z-index: 106;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: min(420px, 85vw);
+    width: max-content;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 3px 14px #0002;
+    color: var(--text);
+    background: var(--surface);
+    font-size: 12px;
+    line-height: 1.5;
+    pointer-events: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.editor-rich[data-table-dragging="true"], .editor-rich[data-table-dragging="true"] * {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none;
+    caret-color: transparent;
+}

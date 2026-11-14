@@ -95,6 +95,8 @@
         editorPreviewing: false,
         richEditor: null,
         editorMobile: null,
+        mathUi: null,
+        displayUi: null,
         linkRange: null,
         importTarget: 'library',
         pendingConfirm: null,
@@ -173,6 +175,7 @@
         }
 
         app.themeMode = Store.getPrefs().theme || 'auto';
+        window.NoteDisplay.apply(Store.getPrefs().displayScale);
         applyTheme(app.themeMode, false);
 
         if (!Store.loadWarning && !app.recoveryError) {
@@ -311,8 +314,17 @@
             scroll: dom.editorOverlay.querySelector('.editor-scroll'),
             toolbar: dom.richToolbar, textarea: dom.editorTextarea, title: dom.editorTitle,
             getEditor: () => app.richEditor,
-            isRich: () => app.editorFormat === 'rich' && !dom.editorForm.inert
+            isRich: () => app.editorFormat === 'rich' && !dom.editorForm.inert && !dom.editorOverlay.inert
         });
+        app.mathUi = window.NoteEditorMath.create({
+            overlay: dom.editorOverlay, form: dom.editorForm, toolbar: dom.richToolbar,
+            getEditor: () => app.richEditor,
+            reveal: () => app.editorMobile.reveal(),
+            onChange: () => { updateRichEmptyState(); updateRichToolbarState(); },
+            toast: showToast
+        });
+        app.displayUi = window.NoteDisplay.create({store: Store, onLayerChange: syncOverlayState, toast: showToast});
+        document.getElementById('display-settings').addEventListener('click', () => app.displayUi.open());
         document.addEventListener('keydown', onDocumentKeydown);
     }
 
@@ -772,6 +784,7 @@
             {id: 'rename', label: '重命名笔记', icon: ICONS.rename},
             {id: 'edit', label: '编辑笔记', icon: ICONS.edit},
             {id: 'theme', label: `切换外观 · ${themeLabel(app.themeMode).replace('外观：', '')}`, icon: ICONS.theme},
+            {id: 'display', label: `显示比例 · ${Store.getPrefs().displayScale}%`, icon: '<span aria-hidden="true">Aa</span>'},
             {id: 'delete', label: '删除笔记', icon: ICONS.trash, danger: true}
         ];
         dom.sheetActions.replaceChildren();
@@ -811,6 +824,8 @@
             openEditor('edit', noteId);
         } else if (action === 'theme') {
             cycleTheme();
+        } else if (action === 'display') {
+            app.displayUi.open();
         } else if (action === 'delete') {
             openDeleteConfirm(noteId);
         }
@@ -925,6 +940,7 @@
 
     function isAnyOverlayOpen() {
         return !dom.editorOverlay.hidden
+            || Boolean(app.displayUi && app.displayUi.isOpen)
             || !dom.actionSheet.hidden
             || !dom.confirmDialog.hidden
             || !dom.renameDialog.hidden;
@@ -932,6 +948,7 @@
 
     function syncOverlayState() {
         const open = isAnyOverlayOpen();
+        dom.editorOverlay.inert = !dom.confirmDialog.hidden || Boolean(app.displayUi && app.displayUi.isOpen);
         document.body.classList.toggle('overlay-open', open);
         if (dom.appShell) {
             try {
@@ -1009,6 +1026,7 @@
     }
 
     function closeEditor(restoreFocus) {
+        app.mathUi.close(false);
         closeLinkDialog(false);
         blurInside(dom.editorOverlay);
         dom.editorOverlay.hidden = true;
@@ -1129,6 +1147,7 @@
         }
 
         const rich = mode === 'rich';
+        app.mathUi.setMode(rich);
         dom.editorRich.hidden = !rich;
         dom.richToolbar.hidden = !rich;
         dom.editorPreviewToggle.hidden = rich;
@@ -1147,13 +1166,13 @@
     function updateEditorHint() {
         if (app.editorFormat === 'rich') {
             dom.editorTextarea.placeholder = '从这里开始写……';
-            dom.editorHint.textContent = '点选内容后可上移、下移、前后插段或删除；点“选区”拖动手柄，靠近上下边缘可连续滚动。';
+            dom.editorHint.textContent = '表格外侧长按行列柄可排序，长按单元格可交换内容；“选区”支持跨屏拖选，右上角 ƒx 可展开公式工具。';
         } else if (app.editorFormat === 'markdown') {
             dom.editorTextarea.placeholder = '# 标题\n\n- [ ] 第一件事\n- [ ] 第二件事\n\n用 Markdown 写点什么……';
-            dom.editorHint.textContent = '编辑 Markdown 源码，勾选列表会自动往返。可切换预览检查结果。';
+            dom.editorHint.textContent = '编辑 Markdown 源码；$…$ 为行内公式，$$…$$ 为独立公式。可切换预览检查结果。';
         } else {
             dom.editorTextarea.placeholder = '<h1>标题</h1>\n<p>用 HTML 写点什么……</p>\n<ul>\n  <li>一个条目</li>\n</ul>';
-            dom.editorHint.textContent = '直接编辑安全 HTML；脚本、内联样式和事件属性会在保存时被移除。';
+            dom.editorHint.textContent = '直接编辑安全 HTML；支持 $…$ / $$…$$ 公式，或修改公式元素的 data-latex 源码。脚本、内联样式和事件属性会被移除。';
         }
     }
 
@@ -1179,7 +1198,8 @@
                 updateRichToolbarState();
                 if (app.editorMobile) app.editorMobile.selectionChanged();
             },
-            onReveal: () => app.editorMobile && app.editorMobile.reveal()
+            onReveal: () => app.editorMobile && app.editorMobile.reveal(),
+            onEditMath: () => app.mathUi && app.mathUi.open()
         });
         updateRichEmptyState();
         updateRichToolbarState();
@@ -1216,7 +1236,9 @@
             {action: 'delete-row', label: '删除当前行', text: '−行'},
             {action: 'add-column', label: '在右侧增加一列', text: '+列'},
             {action: 'delete-column', label: '删除当前列', text: '−列'},
-            {action: 'delete-table', label: '删除当前表格', text: '删表'}
+            {action: 'delete-table', label: '删除当前表格', text: '删表'},
+            {separator: true},
+            {action: 'display', label: '调整显示比例', text: '比例'}
         ]];
         for (const [index, tools] of groups.entries()) {
             const row = document.createElement('div');
@@ -1260,9 +1282,11 @@
 
     function updateRichToolbarState() {
         if (!app.richEditor || app.editorFormat !== 'rich') return;
+        if (app.mathUi) app.mathUi.update();
         for (const button of dom.richToolbar.querySelectorAll('[data-rich-action]')) {
             const action = button.dataset.richAction;
             const value = button.dataset.richValue;
+            if (action === 'display') { button.disabled = false; continue; }
             if (action === 'select-mode' || action === 'cursor-mode') {
                 const selected = app.editorMobile && (action === 'select-mode' ? app.editorMobile.selecting : app.editorMobile.cursorMode);
                 button.setAttribute('aria-pressed', selected ? 'true' : 'false');
@@ -1275,6 +1299,7 @@
 
     function runRichToolAction(tool) {
         if (!app.editorMode || app.editorFormat !== 'rich' || !app.richEditor) return;
+        if (tool.action === 'display') { app.displayUi.open(); return; }
         if (tool.action === 'select-mode' || tool.action === 'cursor-mode') {
             app.editorMobile.toggleSelection(tool.action === 'select-mode' ? 'range' : 'cursor');
             updateRichToolbarState();
@@ -1652,6 +1677,14 @@
     }
 
     function handleBack() {
+        if (app.displayUi && app.displayUi.isOpen) {
+            app.displayUi.close();
+            return true;
+        }
+        if (app.mathUi && app.mathUi.isOpen) {
+            app.mathUi.close(true);
+            return true;
+        }
         if (!dom.editorLinkLayer.hidden) {
             closeLinkDialog(true);
             return true;

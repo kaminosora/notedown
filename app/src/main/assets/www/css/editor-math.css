@@ -1,0 +1,24 @@
+.editor-topbar-actions { display: flex; gap: 8px; align-items: center; justify-self: end; }
+.math-toggle { display: inline-flex; gap: 5px; align-items: center; padding: 8px; min-height: 40px; border-radius: 10px; }
+.math-toggle[aria-checked="true"] { color: var(--accent); background: var(--accent-soft); }
+.math-toolbar { border-top: 1px solid var(--line); }
+.math-toolbar .rich-tool { font-family: var(--font-body); font-size: 12px; }
+.editor-math-dialog { width: min(540px, 100%); max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 20px; }
+.math-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.math-dialog-heading h2 { margin-top: 0; font-size: 22px; }
+.math-dialog-heading select { border: 1px solid var(--line); border-radius: 8px; background: var(--surface-soft); color: var(--text); padding: 8px; }
+.math-source { display: block; width: 100%; min-height: 88px; max-height: 30vh; resize: vertical; font-family: var(--font-mono); font-size: 16px; line-height: 1.5; white-space: pre; tab-size: 2; }
+.math-snippets { display: flex; gap: 3px; overflow-x: auto; margin: 6px 0; touch-action: pan-x; }
+.math-snippets .rich-tool { font: 12px var(--font-body); }
+.math-preview { border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); padding: 14px; min-height: 56px; overflow-x: auto; overflow-wrap: anywhere; color: var(--text); }
+.math-error { color: var(--accent); font-size: 12px; margin: 8px 0 0; overflow-wrap: anywhere; }
+#editor-math-delete { margin-right: auto; color: var(--accent); }
+@media (max-width: 560px) {
+    .editor-topbar { gap: 6px; grid-template-columns: auto 1fr auto; }
+    .editor-topbar-actions { gap: 5px; }
+    .math-toggle { min-height: 44px; min-width: 44px; justify-content: center; }
+    .math-toggle span { display: none; }
+    .math-snippets .rich-tool { min-height: 36px; }
+    .editor-math-dialog { padding: 16px; border-radius: 16px; }
+    .editor-math-layer { padding: 10px; }
+}

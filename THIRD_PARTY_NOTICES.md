@@ -41,5 +41,17 @@ do not make network requests.
 - Rebuild with `npm ci && npm run build:editor`. The bundle and licenses are
   checked in so Android builds and installed applications work without npm or a CDN.
 
+## KaTeX 0.19.1
+
+- Project: https://katex.org/ and https://github.com/KaTeX/KaTeX
+- License: MIT (including bundled font assets)
+- Source: `src/math.js`; bundle: `app/src/main/assets/www/js/math.js`
+- CSS and offline fonts: `app/src/main/assets/www/css/vendor/katex/`
+- License text: `app/src/main/assets/www/js/vendor/LICENSE.katex.txt`
+- Fixed version and integrity are recorded in `package-lock.json`.
+- User formulas use `trust: false`, bounded source length, `maxExpand` and
+  `maxSize`; generated markup is for display and is never stored as note data.
+  Security and option details: https://katex.org/docs/security and https://katex.org/docs/options
+
 All other code, artwork and copy in this repository are original work and are
 released under the MIT license in `LICENSE`.

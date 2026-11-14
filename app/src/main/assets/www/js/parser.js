@@ -22,6 +22,7 @@
 
     const marked = global.marked;
     const DOMPurify = global.DOMPurify;
+    if (global.NoteMath) global.NoteMath.installMarkdown(marked);
 
     const ALLOWED_TAGS = [
         'a', 'p', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -38,7 +39,7 @@
     ];
 
     const APP_DATA_ATTRIBUTES = new Set([
-        'data-task', 'data-checked', 'data-struck', 'data-file'
+        'data-task', 'data-checked', 'data-struck', 'data-file', 'data-math', 'data-latex'
     ]);
 
     const PURIFY_CONFIG = {
@@ -242,7 +243,7 @@
         }
     }
 
-    function canonicalize(rawHtml) {
+    function canonicalize(rawHtml, parseMath = false) {
         const sanitized = DOMPurify.sanitize(String(rawHtml || ''), PURIFY_CONFIG);
         const holder = getTemplate();
         holder.innerHTML = sanitized;
@@ -251,6 +252,10 @@
         normaliseClasses(fragment);
         normaliseLinksAndImages(fragment);
         normaliseTasks(fragment);
+        if (global.NoteMath) {
+            if (parseMath) global.NoteMath.parseHtml(fragment);
+            else global.NoteMath.normalize(fragment);
+        }
         return holder.innerHTML;
     }
 
@@ -276,12 +281,13 @@
     }
 
     function markdownToHtml(markdown) {
+        if (global.NoteMath) global.NoteMath.beginParse(String(markdown || '').length);
         const rendered = marked.parse(String(markdown || ''), MARKDOWN_OPTIONS);
         return canonicalize(rendered);
     }
 
     function htmlToHtml(html) {
-        return canonicalize(htmlBody(html).body);
+        return canonicalize(htmlBody(html).body, true);
     }
 
     function plainTextToHtml(text) {
@@ -375,7 +381,7 @@
 
         if (format === 'html') {
             const parsed = htmlBody(source);
-            html = canonicalize(parsed.body);
+            html = canonicalize(parsed.body, true);
             docTitle = parsed.title;
         } else if (format === 'text') {
             html = plainTextToHtml(source);
@@ -427,6 +433,7 @@
         if (!root) {
             return;
         }
+        if (global.NoteMath) global.NoteMath.render(root);
 
         const taskItems = root.querySelectorAll('li[data-task="true"]');
         for (const li of taskItems) {
@@ -467,6 +474,9 @@
             return '';
         }
         const clone = root.cloneNode(true);
+        // KaTeX markup, SVG/MathML and accessibility helpers are transient.
+        // Restore exact LaTeX before any reading controls can save this DOM.
+        if (global.NoteMath) global.NoteMath.normalize(clone);
 
         for (const li of clone.querySelectorAll('li[data-task="true"]')) {
             const checkbox = li.querySelector(':scope > input.nt-checkbox');
