@@ -705,6 +705,71 @@ public class MainActivity extends Activity {
             }
         }
 
+        /**
+         * Copy the last readable document to "notes.json.prev" once at startup.
+         * AtomicFile already keeps a ".bak" copy only while a write is in
+         * progress, so a rolling snapshot is what makes recovery possible after
+         * a later corruption. This never replaces the live document.
+         */
+        @JavascriptInterface
+        public void snapshotBackup() {
+            java.io.File base = notesFile.getBaseFile();
+            if (!base.isFile() || base.length() == 0 || base.length() > MAX_SAVED_DATA_BYTES) {
+                return;
+            }
+            java.io.File target = new java.io.File(base.getPath() + ".prev");
+            java.io.File temp = new java.io.File(base.getPath() + ".prev.tmp");
+            try (java.io.FileInputStream input = new java.io.FileInputStream(base);
+                 java.io.FileOutputStream output = new java.io.FileOutputStream(temp)) {
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    output.write(buffer, 0, count);
+                }
+                output.flush();
+                output.getFD().sync();
+            } catch (IOException exception) {
+                Log.w(TAG, "Could not snapshot the notes backup", exception);
+                temp.delete();
+                return;
+            }
+            if (!temp.renameTo(target)) {
+                Log.w(TAG, "Could not replace the notes backup");
+                temp.delete();
+            }
+        }
+
+        /**
+         * Recovery reads the startup snapshot, falling back to the copy that
+         * AtomicFile leaves behind when a write is interrupted. It never writes.
+         */
+        @JavascriptInterface
+        public String loadBackupData() {
+            java.io.File backup = new java.io.File(notesFile.getBaseFile().getPath() + ".prev");
+            if (!backup.isFile()) {
+                backup = new java.io.File(notesFile.getBaseFile().getPath() + ".bak");
+            }
+            if (!backup.isFile()) {
+                return "";
+            }
+            if (backup.length() > MAX_SAVED_DATA_BYTES) {
+                Log.w(TAG, "Backup data is unexpectedly large: " + backup.length());
+                return "";
+            }
+            try (java.io.FileInputStream input = new java.io.FileInputStream(backup)) {
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    output.write(buffer, 0, count);
+                }
+                return new String(output.toByteArray(), StandardCharsets.UTF_8);
+            } catch (IOException exception) {
+                Log.e(TAG, "Could not read the automatic backup", exception);
+                return "";
+            }
+        }
+
         @JavascriptInterface
         public void pickFiles() {
             runOnUiThread(MainActivity.this::openFilePicker);

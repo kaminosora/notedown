@@ -474,6 +474,32 @@ try {
         await context.close();
         console.log('PASS multi-file import + append');
     }
+
+    /* 5. Leaving an editor with unsaved changes asks first. */
+    {
+        const {context, page, errors} = await newPage(browser, baseUrl);
+        await page.locator('#new-note-fab').click();
+        await page.locator('#editor-overlay:not([hidden])').waitFor();
+        await page.locator('#editor-title').fill('未保存的草稿');
+        await page.locator('[data-editor-mode="html"]').click();
+        await page.locator('#editor-textarea').fill('<p>草稿正文</p>');
+        await page.locator('[data-editor-mode="rich"]').click();
+
+        await page.locator('#editor-cancel').click();
+        await page.locator('#confirm-dialog:not([hidden])').waitFor();
+        assert.match(await page.locator('#confirm-title').innerText(), /放弃未保存的修改/);
+        await page.locator('#confirm-cancel').click();
+        await page.locator('#confirm-dialog').waitFor({state: 'hidden'});
+        assert.equal(await page.locator('#editor-overlay').isVisible(), true);
+
+        await page.evaluate(() => window.Notedown.handleBack());
+        await page.locator('#confirm-dialog:not([hidden])').waitFor();
+        await page.locator('#confirm-ok').click();
+        await page.locator('#editor-overlay').waitFor({state: 'hidden'});
+        assert.deepEqual(errors, []);
+        await context.close();
+        console.log('PASS unsaved editor discard guard');
+    }
 } catch (error) {
     failures.push(error);
 } finally {

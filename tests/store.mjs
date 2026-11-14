@@ -12,8 +12,9 @@ const initial = {
 };
 const copy = (value) => JSON.parse(JSON.stringify(value));
 
-function harness({native = false, data = initial, fail = false, throws = false} = {}) {
-    const disk = {json: data ? JSON.stringify(data) : '', local: '', fail, throws, nativeWrites: 0, localWrites: 0};
+function harness({native = false, data = initial, raw = null, local = '', fail = false, throws = false} = {}) {
+    const json = raw === null ? (data ? JSON.stringify(data) : '') : raw;
+    const disk = {json, local, fail, throws, nativeWrites: 0, localWrites: 0};
     const errors = [];
     const window = {
         crypto: {randomUUID: (() => { let sequence = 0; return () => `new-${++sequence}`; })()},
@@ -138,4 +139,68 @@ test('a throwing UI error handler cannot turn a failed save into an exception or
     store.setSaveErrorHandler(() => { throw new Error('UI reporter failed'); });
     assert.equal(store.createNote({html: '<p>Draft</p>'}), null);
     assert.deepEqual(copy(store.getNotes()), initial.notes);
+});
+
+test('native: an unreadable document blocks writes and is left untouched', () => {
+    const broken = '{"version":1,"notes":[';
+    const {store, disk, errors} = harness({native: true, raw: broken});
+    assert.equal(store.getNotes().length, 0);
+    assert.ok(store.getLoadError());
+    assert.equal(store.getLoadError().source, '本地存储');
+    assert.equal(disk.json, broken);
+    assert.equal(store.createNote({title: 'Draft', html: '<p>Draft</p>'}), null);
+    assert.equal(disk.json, broken);
+    assert.ok(errors.some((message) => message.includes('已暂停保存')));
+});
+
+test('native: recovery is offered instead of silently using a stale browser copy', () => {
+    const stale = JSON.stringify({
+        version: 1,
+        prefs: {theme: 'auto'},
+        notes: [{id: 'stale', title: 'Stale', html: '<p>Stale</p>', createdAt: 1, updatedAt: 1}]
+    });
+    const {store} = harness({native: true, raw: 'not json', local: stale});
+    assert.equal(store.getNotes().length, 0);
+    assert.ok(store.getLoadError());
+});
+
+test('native: restoring a backup replaces the damaged document and unblocks writes', () => {
+    const {store, disk} = harness({native: true, raw: 'broken'});
+    assert.equal(store.restore(JSON.stringify(initial)), true);
+    assert.equal(store.getLoadError(), null);
+    assert.deepEqual(copy(store.getNotes()), initial.notes);
+    const created = store.createNote({title: 'After recovery', html: '<p>After</p>'});
+    assert.ok(created && created.id);
+    assert.equal(JSON.parse(disk.json).notes.length, 2);
+});
+
+test('native: an invalid backup is rejected and recovery stays pending', () => {
+    const {store, disk} = harness({native: true, raw: 'broken'});
+    assert.equal(store.restore('{"notes":'), false);
+    assert.ok(store.getLoadError());
+    assert.equal(disk.json, 'broken');
+    assert.equal(store.createNote({title: 'Blocked', html: '<p>Blocked</p>'}), null);
+});
+
+test('native: reset is the only way to discard unreadable data without a backup', () => {
+    const {store, disk} = harness({native: true, raw: 'broken'});
+    assert.equal(store.reset(), true);
+    assert.equal(store.getLoadError(), null);
+    assert.equal(store.getNotes().length, 0);
+    assert.deepEqual(JSON.parse(disk.json).notes, []);
+    assert.ok(store.createNote({title: 'Fresh', html: '<p>Fresh</p>'}));
+});
+
+test('native: an empty document still migrates the browser copy', () => {
+    const {store} = harness({native: true, data: null, local: JSON.stringify(initial)});
+    assert.equal(store.getLoadError(), null);
+    assert.deepEqual(copy(store.getNotes()), initial.notes);
+    assert.equal(store.loadWarning, '已从浏览器备份恢复笔记');
+});
+
+test('browser: an unreadable document starts fresh without a recovery lock', () => {
+    const {store} = harness({raw: 'not json'});
+    assert.equal(store.getLoadError(), null);
+    assert.equal(store.getNotes().length, 0);
+    assert.ok(store.loadWarning);
 });

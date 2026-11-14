@@ -98,6 +98,8 @@
         linkRange: null,
         importTarget: 'library',
         pendingConfirm: null,
+        editorBaseline: null,
+        recoveryError: null,
         toastTimer: 0,
         lastStorageErrorAt: 0,
         searchIndex: new Map(),
@@ -139,6 +141,18 @@
         dom.mediaDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
     }
 
+    function snapshotNativeBackup() {
+        const bridge = nativeBridge();
+        if (!bridge || typeof bridge.snapshotBackup !== 'function') {
+            return;
+        }
+        try {
+            bridge.snapshotBackup();
+        } catch (error) {
+            // A rolling backup is best-effort; never block startup for it.
+        }
+    }
+
     function nativeBridge() {
         try {
             return window.NotedownNative && typeof window.NotedownNative === 'object'
@@ -153,11 +167,15 @@
         cacheDom();
         Store.setSaveErrorHandler(handleStorageError);
         Store.init();
+        app.recoveryError = Store.getLoadError();
+        if (!app.recoveryError) {
+            snapshotNativeBackup();
+        }
 
         app.themeMode = Store.getPrefs().theme || 'auto';
         applyTheme(app.themeMode, false);
 
-        if (!Store.loadWarning) {
+        if (!Store.loadWarning && !app.recoveryError) {
             seedWelcomeNote();
         }
 
@@ -169,7 +187,9 @@
         exposeNativeHooks();
         app.booted = true;
 
-        if (Store.loadWarning) {
+        if (app.recoveryError) {
+            showRecoveryBanner();
+        } else if (Store.loadWarning) {
             showToast(Store.loadWarning);
         }
         if (dom.mediaDark) {
@@ -263,7 +283,7 @@
         dom.renameForm.addEventListener('submit', submitRename);
 
         dom.editorForm.addEventListener('submit', submitEditor);
-        dom.editorCancel.addEventListener('click', () => closeEditor());
+        dom.editorCancel.addEventListener('click', () => requestCloseEditor());
         for (const button of dom.editorModeTabs.querySelectorAll('[data-editor-mode]')) {
             button.addEventListener('click', () => switchEditorMode(button.getAttribute('data-editor-mode')));
         }
@@ -449,6 +469,98 @@
                 window.scrollTo(0, app.libraryScrollY || 0);
             });
         }
+    }
+
+    /* ---------------- Recovery ---------------- */
+
+    function showRecoveryBanner() {
+        if (dom.recoveryBanner) {
+            return;
+        }
+        const banner = document.createElement('section');
+        banner.className = 'recovery-banner';
+        banner.setAttribute('role', 'alert');
+        banner.innerHTML = `
+            <p class="recovery-kicker">Recovery mode</p>
+            <h2 class="recovery-title">本地笔记数据无法读取</h2>
+            <p class="recovery-copy">为避免覆盖原有内容，保存已暂停。可以先从上次启动时保存的自动备份恢复；也可以清空后重新开始。</p>
+            <div class="recovery-actions">
+                <button type="button" class="button" data-recovery="restore">从自动备份恢复</button>
+                <button type="button" class="button button-outline" data-recovery="reset">清空并重新开始</button>
+            </div>`;
+        banner.addEventListener('click', onRecoveryClick);
+        const main = dom.libraryScreen.querySelector('.library-main');
+        (main || dom.libraryScreen).prepend(banner);
+        dom.recoveryBanner = banner;
+    }
+
+    function hideRecoveryBanner() {
+        if (!dom.recoveryBanner) {
+            return;
+        }
+        dom.recoveryBanner.remove();
+        dom.recoveryBanner = null;
+    }
+
+    function onRecoveryClick(event) {
+        const button = event.target.closest('[data-recovery]');
+        if (!button) {
+            return;
+        }
+        if (button.getAttribute('data-recovery') === 'restore') {
+            restoreFromBackup();
+        } else {
+            confirmRecoveryReset();
+        }
+    }
+
+    function finishRecovery() {
+        app.recoveryError = null;
+        app.searchIndex.clear();
+        hideRecoveryBanner();
+    }
+
+    function restoreFromBackup() {
+        const bridge = nativeBridge();
+        if (!bridge || typeof bridge.loadBackupData !== 'function') {
+            showToast('当前环境没有可用的自动备份');
+            return;
+        }
+        let raw = '';
+        try {
+            raw = bridge.loadBackupData() || '';
+        } catch (error) {
+            raw = '';
+        }
+        if (!raw) {
+            showToast('没有找到可用的自动备份');
+            return;
+        }
+        if (!Store.restore(raw)) {
+            showToast('备份内容同样无法读取');
+            return;
+        }
+        finishRecovery();
+        renderLibrary();
+        showToast('已从自动备份恢复笔记');
+    }
+
+    function confirmRecoveryReset() {
+        openConfirmDialog({
+            title: '清空本地笔记并重新开始？',
+            message: '无法读取的原始数据会被覆盖，且不能撤销。',
+            confirmLabel: '清空并重新开始',
+            onConfirm: () => {
+                if (!Store.reset()) {
+                    showToast('无法写入，请检查存储空间');
+                    return false;
+                }
+                finishRecovery();
+                seedWelcomeNote();
+                renderLibrary();
+                return true;
+            }
+        });
     }
 
     /* ---------------- Note view ---------------- */
@@ -704,23 +816,34 @@
         }
     }
 
+    function openConfirmDialog(options) {
+        const settings = options || {};
+        dom.confirmTitle.textContent = settings.title || '确认操作';
+        dom.confirmMessage.textContent = settings.message || '';
+        dom.confirmOk.textContent = settings.confirmLabel || '确认';
+        dom.confirmCancel.textContent = settings.cancelLabel || '取消';
+        app.pendingConfirm = typeof settings.onConfirm === 'function' ? settings.onConfirm : null;
+        openLayer(dom.confirmBackdrop, dom.confirmDialog, dom.confirmCancel);
+    }
+
     function openDeleteConfirm(noteId) {
         const note = Store.getNote(noteId);
         if (!note) {
             return;
         }
-        dom.confirmTitle.textContent = '删除这篇笔记？';
-        dom.confirmMessage.textContent = `“${note.title}” 将被永久删除，无法恢复。`;
-        dom.confirmOk.textContent = '删除';
-        app.pendingConfirm = () => {
-            if (!Store.deleteNote(noteId)) return false;
-            app.currentNoteId = null;
-            app.searchIndex.clear();
-            showLibrary({restoreScroll: false});
-            showToast('笔记已删除');
-            return true;
-        };
-        openLayer(dom.confirmBackdrop, dom.confirmDialog, dom.confirmCancel);
+        openConfirmDialog({
+            title: '删除这篇笔记？',
+            message: `“${note.title}” 将被永久删除，无法恢复。`,
+            confirmLabel: '删除',
+            onConfirm: () => {
+                if (!Store.deleteNote(noteId)) return false;
+                app.currentNoteId = null;
+                app.searchIndex.clear();
+                showLibrary({restoreScroll: false});
+                showToast('笔记已删除');
+                return true;
+            }
+        });
     }
 
     function closeConfirm() {
@@ -866,6 +989,11 @@
 
         setRichContent(note ? Parser.sanitizeHtml(note.html) : '');
         applyEditorModeUi();
+        // Snapshot what "unchanged" means for the discard guard below.
+        app.editorBaseline = {
+            title: dom.editorTitle.value.trim(),
+            html: captureEditorHtml()
+        };
         dom.editorOverlay.hidden = false;
         app.editorMobile.open();
         updateRichToolbarState();
@@ -899,7 +1027,37 @@
         app.editorPreviewing = false;
 
         app.linkRange = null;
+        app.editorBaseline = null;
         syncOverlayState();
+    }
+
+    function editorHasUnsavedChanges() {
+        if (!app.editorMode || !app.editorBaseline) {
+            return false;
+        }
+        if (dom.editorTitle.value.trim() !== app.editorBaseline.title) {
+            return true;
+        }
+        try {
+            return captureEditorHtml() !== app.editorBaseline.html;
+        } catch (error) {
+            // A conversion failure must not be treated as "nothing changed".
+            return true;
+        }
+    }
+
+    function requestCloseEditor() {
+        if (!editorHasUnsavedChanges()) {
+            closeEditor();
+            return;
+        }
+        openConfirmDialog({
+            title: '放弃未保存的修改？',
+            message: '这篇笔记的修改还没有保存，离开后会丢失。',
+            confirmLabel: '放弃修改',
+            cancelLabel: '继续编辑',
+            onConfirm: closeEditor
+        });
     }
 
     function captureEditorHtml() {
@@ -1498,10 +1656,6 @@
             closeLinkDialog(true);
             return true;
         }
-        if (!dom.editorOverlay.hidden) {
-            closeEditor();
-            return true;
-        }
         if (!dom.confirmDialog.hidden) {
             closeConfirm();
             return true;
@@ -1512,6 +1666,10 @@
         }
         if (!dom.actionSheet.hidden) {
             closeActionSheet();
+            return true;
+        }
+        if (!dom.editorOverlay.hidden) {
+            requestCloseEditor();
             return true;
         }
         if (app.strikeMode) {
