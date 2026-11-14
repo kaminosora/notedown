@@ -8,7 +8,7 @@ const adbPath = process.env.ADB_PATH;
 assert.ok(adbPath, 'Set ADB_PATH');
 const serial = process.env.ANDROID_SERIAL || '127.0.0.1:16384';
 const pkg = 'io.github.kaminosora.notedown.qa';
-const out = '.test-artifacts/v1.3.0/android';
+const out = process.env.ANDROID_TEST_OUTPUT || '.test-artifacts/v1.3.1/android';
 fs.mkdirSync(out, {recursive: true});
 const adb = (...a) => execFileSync(adbPath, ['-s', serial, ...a], {maxBuffer: 12 * 1024 * 1024});
 const shell = (...a) => adb('shell', ...a).toString().trim();
@@ -84,15 +84,19 @@ try {
         assert.ok(Math.abs((await page.evaluate(() => visualViewport.scale)) - .65) < .004);
         fs.writeFileSync(`${out}/display-metrics.json`, JSON.stringify({density: shell('wm', 'density'), fontScale: shell('settings', 'get', 'system', 'font_scale'), samples}, null, 2));
     });
-    await test('scaled phone table row and cell drags hit their intended targets', async () => {
+    await test('scaled phone reading table row and cell drags hit intended targets without keyboard', async () => {
         await fixture('<table><tr><th>A</th><th>B</th></tr><tr><td>C</td><td>D</td></tr><tr><td>E</td><td>F</td></tr></table>');
+        await page.locator('#editor-save').click(); await pause(700);
+        assert.ok(!/mInputShown=true/.test(shell('dumpsys', 'input_method')));
+        const fullHeight = await page.evaluate(() => visualViewport.height);
         await readOrigin();
-        const grid = () => page.locator('#editor-rich tr').evaluateAll(rows => rows.map(row => Array.from(row.cells).map(cell => cell.textContent)));
+        const grid = () => page.locator('#note-content tr').evaluateAll(rows => rows.map(row => Array.from(row.cells).map(cell => cell.textContent)));
         await nativeDrag(page.locator('[data-table-drag="row"][data-index="0"]'), page.locator('[data-table-drag="row"][data-index="2"]'));
         assert.deepEqual(await grid(), [['C', 'D'], ['E', 'F'], ['A', 'B']]);
-        await page.locator('[data-rich-action="undo"]').click(); await pause();
-        await nativeDrag(page.locator('#editor-rich th p').first(), page.locator('#editor-rich td p').last());
-        assert.deepEqual(await grid(), [['F', 'B'], ['C', 'D'], ['E', 'A']]);
+        await nativeDrag(page.locator('#note-content th').first(), page.locator('#note-content td').last());
+        assert.deepEqual(await grid(), [['B', 'D'], ['E', 'F'], ['A', 'C']]);
+        assert.ok(!/mInputShown=true/.test(shell('dumpsys', 'input_method')));
+        assert.ok(Math.abs(await page.evaluate(() => visualViewport.height) - fullHeight) <= 2);
         shot('phone-display-65-table');
     });
     await test('scaled phone typing caret, sticky toolbar and formula dialog avoid the keyboard', async () => {

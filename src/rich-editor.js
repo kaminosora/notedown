@@ -11,7 +11,6 @@ import {inputRules, wrappingInputRule, textblockTypeInputRule, InputRule, undoIn
 import {gapCursor} from 'prosemirror-gapcursor';
 import {dropCursor} from 'prosemirror-dropcursor';
 import {tableNodes, tableEditing, addRowAfter, deleteRow, addColumnAfter, deleteColumn, deleteTable, goToNextCell} from 'prosemirror-tables';
-import {createTableDragPlugin} from './table-drag.js';
 
 const Parser = window.NoteParser;
 const struckAttrs = {struck: {default: false}};
@@ -477,7 +476,7 @@ function create({element, html = '', onChange = () => {}, onSelectionChange = ()
         'Shift-Tab': chainCommands(goToNextCell(-1), liftListItem(schema.nodes.list_item)),
         'Alt-ArrowUp': manipulateBlock('block-up'), 'Alt-ArrowDown': manipulateBlock('block-down')
     };
-    const plugins = [buildInputRules(), history(), keymap(shortcuts), keymap(baseKeymap), gapCursor(), dropCursor(), createTableDragPlugin(), tableEditing()];
+    const plugins = [buildInputRules(), history(), keymap(shortcuts), keymap(baseKeymap), gapCursor(), dropCursor(), tableEditing()];
     let state = EditorState.create({doc: readDocument(html), plugins});
     const view = new EditorView({mount: element}, {
         state,

@@ -1,67 +1,41 @@
-.table-drag-layer {
-    position: fixed;
-    inset: 0;
-    z-index: 105;
-    pointer-events: none;
-    -webkit-user-select: none;
-    user-select: none;
-}
+/* Reading table controls mirror the existing list grip. */
+.table-drag-layer { position: fixed; inset: 0; z-index: 25; pointer-events: none; -webkit-user-select: none; user-select: none; }
 .table-drag-handle {
-    position: fixed;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    border-radius: 6px;
-    color: var(--muted);
-    background: transparent;
-    pointer-events: auto;
-    touch-action: none;
-    cursor: grab;
+    position: fixed; display: flex; align-items: center; justify-content: center;
+    padding: 0; border: 0; border-radius: 6px; color: var(--muted); background: transparent;
+    pointer-events: auto; touch-action: none; cursor: grab;
 }
 .table-drag-handle::after {
-    content: '';
-    width: 5px;
-    height: 16px;
-    border-radius: 4px;
-    background: currentColor;
-    opacity: .45;
+    content: "⠿"; color: var(--muted); font-family: var(--font-body);
+    font-size: 13px; line-height: 1; letter-spacing: -2px; opacity: .24;
+    pointer-events: none; transition: opacity 180ms ease;
 }
-.table-drag-column::after { width: 16px; height: 5px; }
-.table-drag-handle:hover, .table-drag-handle:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
+.table-drag-handle:hover::after, .table-drag-handle:focus-visible::after { opacity: .5; }
+.table-drag-handle:focus-visible { outline: 1px solid var(--line-strong); outline-offset: -3px; }
+.table-drag-layer.is-dragging .table-drag-handle { opacity: 0; }
 .table-drag-source, .table-drag-target {
-    position: fixed;
-    pointer-events: none;
-    box-sizing: border-box;
-    border: 2px solid var(--accent);
-    border-radius: 3px;
-    background: rgba(var(--drag-edge-rgb), .12);
+    position: fixed; pointer-events: none; box-sizing: border-box;
+    border: 2px solid var(--accent); border-radius: 3px; background: rgba(var(--drag-edge-rgb), .1);
 }
 .table-drag-source { border-style: dashed; opacity: .6; }
-.table-drag-target { box-shadow: 0 0 0 2px var(--surface); }
+.table-drag-target { box-shadow: 0 0 0 1px var(--surface); }
 .table-drag-status {
-    position: fixed;
-    z-index: 106;
-    left: 50%;
-    transform: translateX(-50%);
-    max-width: min(420px, 85vw);
-    width: max-content;
-    padding: 8px 12px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    box-shadow: 0 3px 14px #0002;
-    color: var(--text);
-    background: var(--surface);
-    font-size: 12px;
-    line-height: 1.5;
-    pointer-events: none;
-    -webkit-user-select: none;
-    user-select: none;
+    position: fixed; z-index: 26; left: 50%; transform: translateX(-50%);
+    max-width: min(420px, 85vw); width: max-content; padding: 8px 12px;
+    border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 3px 14px #0002;
+    color: var(--text); background: var(--surface); font-size: 12px; line-height: 1.5;
+    pointer-events: none; -webkit-user-select: none; user-select: none;
 }
-.editor-rich[data-table-dragging="true"], .editor-rich[data-table-dragging="true"] * {
-    -webkit-user-select: none !important;
-    user-select: none !important;
-    -webkit-touch-callout: none;
-    caret-color: transparent;
+#note-content[data-table-dragging="true"], #note-content[data-table-dragging="true"] * {
+    -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none;
 }
+/* Match list long presses: Android decides native text selection at touch-down,
+   so changing this only after the hold timer would lose pointer capture. */
+#note-content td, #note-content th, #note-content td *, #note-content th * {
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+#note-content td a, #note-content th a {
+    -webkit-user-select: text; user-select: text; -webkit-touch-callout: default;
+}
+/* Nested tables retain native horizontal swipes instead of the list pan-y restriction. */
+#note-content li:has(table) { touch-action: pan-x pan-y; }

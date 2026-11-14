@@ -329,21 +329,26 @@
     }
 
     function initDrag() {
-        if (!window.NoteDrag) {
-            return;
-        }
-        window.NoteDrag.init(dom.noteContent, {
-            onHaptic: nativeHaptic,
-            onCommit: () => {
-                if (!app.currentNoteId) {
-                    return;
-                }
-                const updated = persistOpenNote();
-                if (updated) {
-                    refreshNoteMeta(updated);
-                }
+        const commit = () => {
+            if (!app.currentNoteId) return false;
+            const updated = persistOpenNote();
+            if (updated) {
+                refreshNoteMeta(updated);
             }
+            return Boolean(updated);
+        };
+        window.NoteDrag.init(dom.noteContent, {onHaptic: nativeHaptic, onCommit: commit});
+        window.NoteTableDrag.init(dom.noteContent, {
+            isEnabled: () => app.currentView === 'note' && !dom.noteScreen.hidden && !app.strikeMode && !isAnyOverlayOpen(),
+            onHaptic: nativeHaptic,
+            onMessage: showToast,
+            onCommit: commit
         });
+    }
+
+    function cancelReadingDrag() {
+        window.NoteDrag.cancel();
+        window.NoteTableDrag.cancel();
     }
 
     /* ---------------- Library ---------------- */
@@ -449,13 +454,14 @@
         if (app.currentView === 'library') {
             app.libraryScrollY = window.scrollY;
         }
-        window.NoteDrag.cancel();
+        cancelReadingDrag();
         app.currentNoteId = id;
         app.currentView = 'note';
         setStrikeMode(false, false);
         renderNote(note);
         dom.libraryScreen.hidden = true;
         dom.noteScreen.hidden = false;
+        window.NoteTableDrag.refresh();
         dom.noteTopbar.classList.remove('is-scrolled');
         document.title = `${note.title} · Notedown`;
         window.scrollTo(0, 0);
@@ -466,12 +472,13 @@
 
     function showLibrary(options) {
         const settings = options || {};
-        window.NoteDrag.cancel();
+        cancelReadingDrag();
         setStrikeMode(false, false);
         dom.noteScreen.hidden = true;
         dom.libraryScreen.hidden = false;
         app.currentView = 'library';
         app.currentNoteId = null;
+        window.NoteTableDrag.refresh();
         document.title = 'Notedown';
         if (!settings.skipRender) {
             renderLibrary();
@@ -578,6 +585,7 @@
     /* ---------------- Note view ---------------- */
 
     function renderNote(note) {
+        cancelReadingDrag();
         dom.noteTitle.textContent = note.title;
         dom.noteTopbarTitle.textContent = note.title;
         dom.noteUpdated.textContent = `最后编辑 ${relativeTime(note.updatedAt)}`;
@@ -590,6 +598,7 @@
         ensureContentNotEmpty();
         updateNoteStats();
         document.title = `${note.title} · Notedown`;
+        window.NoteTableDrag.refresh();
     }
 
     function hideDuplicateTitle(title) {
@@ -765,10 +774,12 @@
     }
 
     function syncStrikeUi() {
+        cancelReadingDrag();
         dom.strikeButton.setAttribute('aria-pressed', app.strikeMode ? 'true' : 'false');
         dom.strikeButton.setAttribute('aria-label', app.strikeMode ? '退出划线模式' : '进入划线模式');
         dom.strikeBanner.hidden = !app.strikeMode;
         document.body.classList.toggle('strike-mode', app.strikeMode);
+        window.NoteTableDrag.refresh();
     }
 
     /* ---------------- Action sheet / dialogs ---------------- */
@@ -948,8 +959,10 @@
 
     function syncOverlayState() {
         const open = isAnyOverlayOpen();
+        if (open) cancelReadingDrag();
         dom.editorOverlay.inert = !dom.confirmDialog.hidden || Boolean(app.displayUi && app.displayUi.isOpen);
         document.body.classList.toggle('overlay-open', open);
+        window.NoteTableDrag.refresh();
         if (dom.appShell) {
             try {
                 dom.appShell.inert = open;
@@ -977,6 +990,7 @@
     /* ---------------- Editor ---------------- */
 
     function openEditor(mode, noteId) {
+        cancelReadingDrag();
         let note = null;
         if (mode === 'edit') {
             note = noteId ? Store.getNote(noteId) : (app.currentNoteId ? Store.getNote(app.currentNoteId) : null);
@@ -1166,7 +1180,7 @@
     function updateEditorHint() {
         if (app.editorFormat === 'rich') {
             dom.editorTextarea.placeholder = '从这里开始写……';
-            dom.editorHint.textContent = '表格外侧长按行列柄可排序，长按单元格可交换内容；“选区”支持跨屏拖选，右上角 ƒx 可展开公式工具。';
+            dom.editorHint.textContent = '在阅读页面长按表格外侧点状手柄可排序；这里可编辑文字和增删行列。“选区”支持跨屏拖选，ƒx 可展开公式工具。';
         } else if (app.editorFormat === 'markdown') {
             dom.editorTextarea.placeholder = '# 标题\n\n- [ ] 第一件事\n- [ ] 第二件事\n\n用 Markdown 写点什么……';
             dom.editorHint.textContent = '编辑 Markdown 源码；$…$ 为行内公式，$$…$$ 为独立公式。可切换预览检查结果。';
@@ -1677,6 +1691,10 @@
     }
 
     function handleBack() {
+        if (window.NoteTableDrag.isDragging) {
+            window.NoteTableDrag.cancel();
+            return true;
+        }
         if (app.displayUi && app.displayUi.isOpen) {
             app.displayUi.close();
             return true;

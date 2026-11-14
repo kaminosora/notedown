@@ -286,14 +286,13 @@ try {
         }, {width});
     }
 
-    await test('scaled mobile pointer drag exchanges both cell contents and the unsaved guard still works', async (page, context) => {
+    await test('scaled reading touch swaps and saves cells; editing has no drag handles and still types', async (page, context) => {
         await saveScale(page, 80);
         await openHtml(page, '<p>before</p><table><tr><td>source</td><td><strong>target content</strong></td></tr><tr><td>third</td><td>fourth</td></tr></table><p>after</p>');
         await page.locator('#editor-save').tap();
-        const saved = await page.evaluate(() => NoteStore.getNotes().find(note => note.title === 'Display regression'));
-        await page.locator('#edit-note-button').tap();
+        const original = await page.evaluate(() => NoteStore.getNotes().find(note => note.title === 'Display regression'));
         await pause(page);
-        const cells = page.locator('#editor-rich td');
+        const cells = page.locator('#note-content td');
         const from = await cells.nth(0).boundingBox(), to = await cells.nth(1).boundingBox();
         assert.ok(from && to);
         const session = await context.newCDPSession(page);
@@ -301,7 +300,7 @@ try {
         const end = {x: to.x + to.width / 2, y: to.y + to.height / 2};
         await session.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [start]});
         await pause(page, 510);
-        assert.equal(await page.locator('#editor-rich').getAttribute('data-table-dragging'), 'true');
+        assert.equal(await page.evaluate(() => NoteTableDrag.isDragging), true);
         for (let step = 1; step <= 10; step++) {
             const ratio = step / 10;
             await session.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: start.x + (end.x - start.x) * ratio, y: start.y + (end.y - start.y) * ratio}]});
@@ -310,14 +309,39 @@ try {
         await pause(page);
         assert.deepEqual(await cells.allTextContents(), ['target content', 'source', 'third', 'fourth']);
         assert.equal(await cells.nth(0).locator('strong').innerText(), 'target content');
-        assert.doesNotMatch(await page.evaluate(() => __editor.getHTML()), /table-drag|display-dialog/);
+        const saved = await page.evaluate(id => NoteStore.getNote(id), original.id);
+        assert.notEqual(saved.html, original.html, 'Reading drag saves immediately');
+        assert.doesNotMatch(saved.html, /table-drag|display-dialog/);
+        assert.equal(await page.evaluate(() => Boolean(document.activeElement?.isContentEditable)), false);
+        await page.reload({waitUntil: 'networkidle'});
+        await instrument(page);
+        await assertScale(page, 80);
+        await page.locator('.note-card').filter({hasText: 'Display regression'}).tap();
+        assert.deepEqual(await cells.allTextContents(), ['target content', 'source', 'third', 'fourth']);
+        await page.locator('#edit-note-button').tap();
+        await pause(page);
+        assert.equal(await page.locator('[data-table-drag]:visible').count(), 0);
+        const editorCells = page.locator('#editor-rich td');
+        const first = await editorCells.first().boundingBox(), last = await editorCells.last().boundingBox();
+        const editingStart = {x: first.x + first.width / 2, y: first.y + first.height / 2};
+        const editingEnd = {x: last.x + last.width / 2, y: last.y + last.height / 2};
+        await session.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [editingStart]});
+        await pause(page, 520);
+        assert.equal(await page.evaluate(() => NoteTableDrag.isDragging), false);
+        await session.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [editingEnd]});
+        await session.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+        assert.deepEqual(await editorCells.allTextContents(), ['target content', 'source', 'third', 'fourth']);
+        await editorCells.nth(1).tap();
+        await page.keyboard.press('End');
+        await page.keyboard.insertText(' typed');
+        assert.equal(await editorCells.nth(1).innerText(), 'source typed');
         await page.locator('#editor-cancel').tap();
         assert.equal(await page.locator('#confirm-dialog').isVisible(), true);
         await page.locator('#confirm-cancel').tap();
         assert.equal(await page.locator('#editor-overlay').isVisible(), true);
-        assert.deepEqual(await page.evaluate(id => NoteStore.getNote(id), saved.id), saved, 'Draft drag never overwrites saved note');
-        await page.locator('[data-rich-action="undo"]').tap();
-        assert.deepEqual(await cells.allTextContents(), ['source', 'target content', 'third', 'fourth']);
+        assert.deepEqual(await page.evaluate(id => NoteStore.getNote(id), saved.id), saved, 'Typing remains a draft until Save');
+        await page.locator('#editor-save').tap();
+        assert.match(await page.evaluate(id => NoteStore.getNote(id).html, saved.id), /source typed/);
     });
 } finally {
     await browser.close();

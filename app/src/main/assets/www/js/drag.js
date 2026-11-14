@@ -26,6 +26,7 @@
     let suppressClick = null;
     let suppressClickTimer = 0;
     let bound = false;
+    let settling = null;
 
     function clamp(value, min, max) {
         return Math.max(min, Math.min(max, value));
@@ -110,7 +111,7 @@
             return true;
         }
         return Boolean(target.closest(
-            'a, button, input, label, select, textarea, summary, [contenteditable="true"], .nt-checkbox'
+            'a, button, input, label, select, textarea, summary, table, [contenteditable="true"], .nt-checkbox'
         ));
     }
 
@@ -144,6 +145,7 @@
     }
 
     function onPointerDown(event) {
+        if (settling) settling();
         if (drag) {
             return;
         }
@@ -335,6 +337,7 @@
         if (drag) {
             finishDrag(true);
         }
+        if (settling) settling();
         cancelPending();
     }
 
@@ -391,8 +394,12 @@
                 return;
             }
             settled = true;
+            if (settling === settle) settling = null;
             cleanup();
         };
+        // Navigation or a new gesture must finish the old save while its note
+        // is still current, rather than committing after the settle animation.
+        settling = settle;
         try {
             const animation = current.ghost.animate(
                 [
